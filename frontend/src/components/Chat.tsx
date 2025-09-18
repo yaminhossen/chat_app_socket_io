@@ -19,6 +19,8 @@ export const Chat: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [connected, setConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+
 
   useEffect(() => {
     // create socket once
@@ -41,9 +43,20 @@ export const Chat: React.FC = () => {
     });
 
     socket.on("typing", ({ sender, isTyping }) => {
-      // implement UI for typing if you want
-      console.log(sender, isTyping ? "is typing..." : "stopped");
-    });
+  setTypingUsers((prev) => {
+    if (isTyping) {
+      // add sender if not already in the list
+      if (!prev.includes(sender)) {
+        return [...prev, sender];
+      }
+      return prev;
+    } else {
+      // remove sender when they stop typing
+      return prev.filter((u) => u !== sender);
+    }
+  });
+});
+
 
     return () => {
       socket.disconnect();
@@ -65,14 +78,24 @@ export const Chat: React.FC = () => {
   };
 
   const sendMessage = () => {
-    if (!message.trim()) return;
-    const socket = socketRef.current!;
-    const payload = { room, sender: username, text: message };
-    socket.emit("send_message", payload);
+  if (message.trim()) {
+    socketRef.current?.emit("chatMessage", {
+      room,
+      sender: username,
+      text: message,
+    });
 
-    // optionally add optimistic UI — message saved by server will come back as 'receive_message'
+    // stop typing indicator after send
+    socketRef.current?.emit("typing", {
+      room,
+      sender: username,
+      isTyping: false,
+    });
+
     setMessage("");
-  };
+  }
+};
+
 
   return (
     <div style={{ maxWidth: 700, margin: "20px auto", fontFamily: "sans-serif" }}>
@@ -95,17 +118,37 @@ export const Chat: React.FC = () => {
 
       <div style={{ marginTop: 8 }}>
         <input
-          value={message}
-          onChange={e => {
-            setMessage(e.target.value);
-            // optionally emit typing
-            socketRef.current?.emit("typing", { room, sender: username, isTyping: e.target.value.length > 0 });
-          }}
-          placeholder="Type a message"
-          style={{ width: "70%" }}
-        />
+  type="text"
+  value={message}
+  onChange={(e) => {
+    setMessage(e.target.value);
+
+    socketRef.current?.emit("typing", {
+      room,
+      sender: username,
+      isTyping: e.target.value.length > 0, // only true when not empty
+    });
+  }}
+  onBlur={() => {
+    // when focus out
+    socketRef.current?.emit("typing", {
+      room,
+      sender: username,
+      isTyping: false,
+    });
+  }}
+/>
+
         <button onClick={sendMessage}>Send</button>
       </div>
+      <div style={{ height: 20, color: "gray", fontStyle: "italic", marginTop: 4 }}>
+  {typingUsers.length > 0 && (
+    <span>
+      {typingUsers.join(", ")} {typingUsers.length > 1 ? "are" : "is"} typing...
+    </span>
+  )}
+</div>
+
     </div>
   );
 };
