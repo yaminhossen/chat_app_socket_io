@@ -6,7 +6,9 @@ export const Chat: React.FC = () => {
   // Mock data for display
   const conversations = [
     { id: "group_1", name: "Group_1", lastMessage: "dfgdf", time: "2 hours ago", type: "group" },
-    { id: "user_1", name: "Md Sahjalal", lastMessage: "hey jalal", time: "3 hours ago", type: "user" }
+    { id: "user_1", name: "Md Sahjalal", lastMessage: "hey jalal", time: "3 hours ago", type: "user" },
+    { id: "user_2", name: "Md Mahfuz", lastMessage: "hey jalal", time: "3 hours ago", type: "user" },
+    { id: "user_3", name: "Md Zawad", lastMessage: "hey jalal", time: "3 hours ago", type: "user" }
   ];
 
   return (

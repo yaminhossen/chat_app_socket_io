@@ -24,7 +24,7 @@ const io = new Server(server, {
 });
 
 // connect to mongo
-mongoose.connect(process.env.MONGO_URI, {
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/chat', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
