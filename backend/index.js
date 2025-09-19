@@ -44,6 +44,16 @@ app.get('/messages/:room', async (req, res) => {
     return res.status(500).json({ error: 'Server error' });
   }
 });
+
+// REST endpoint to fetch all users
+app.get('/users', async (req, res) => {
+  try {
+    const users = await User.find();
+    return res.json(users);
+  } catch (err) {
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
 // create user
 app.post('/create/user', async (req, res) => {
   console.log('req.body', req.body);

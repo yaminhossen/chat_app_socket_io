@@ -49,11 +49,11 @@ export const Register: React.FC = () => {
       const res = await axios.post(`${BACKEND}/create/user`, formData);
       console.log("Registration response:", res.data);
       
+      // navigate("/login");
     } catch (err) {
       console.error(err);
     }
       console.log("Registration attempt:", formData);
-      // navigate("/login");
     }
   };
 

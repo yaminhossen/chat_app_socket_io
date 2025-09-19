@@ -1,5 +1,7 @@
+import axios from "axios";
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
 export const Login: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -15,11 +17,16 @@ export const Login: React.FC = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // For now, just navigate to chat - you can add authentication logic later
-    console.log("Login attempt:", formData);
-    navigate("/chat");
+    try {
+      const res = await axios.post(`${BACKEND}/login`, formData);
+      console.log("Login response:", res.data);
+
+      navigate("/chat");
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (

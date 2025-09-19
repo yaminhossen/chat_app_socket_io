@@ -1,3 +1,4 @@
+import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 
@@ -11,6 +12,7 @@ export const Chat: React.FC = () => {
   const [connected, setConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [conversations, setConversations] = useState<[]>([]);
 
   useEffect(() => {
     // create socket once
@@ -46,11 +48,28 @@ export const Chat: React.FC = () => {
         }
       });
     });
+    
 
     return () => {
       socket.disconnect();
     };
   }, []);
+
+// Load friends list (messages history)
+useEffect(() => {
+  const loadUsers = async () => {
+    try {
+      const res = await axios.get(`${BACKEND}/users`);
+      console.log("Users:", res.data);
+      
+      setConversations(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  loadUsers();
+}, []);
 
 // user create
   const create_user = async () => {
@@ -67,7 +86,7 @@ export const Chat: React.FC = () => {
   };
 
   // Mock data for display
-  const conversations = [
+  const conversationss = [
     {
       id: "group_1",
       name: "Group_1",
@@ -119,10 +138,10 @@ export const Chat: React.FC = () => {
         <div className="flex-1 overflow-y-auto">
           {conversations.map((conv) => (
             <div
-              key={conv.id}
-              onClick={() => setSelectedChat(conv.id)}
+              key={conv._id}
+              onClick={() => setSelectedChat(conv._id)}
               className={`p-3 cursor-pointer border-b border-gray-700 flex items-center gap-3 transition-colors hover:bg-gray-800 ${
-                selectedChat === conv.id ? "bg-gray-800" : ""
+                selectedChat === conv._id ? "bg-gray-800" : ""
               }`}
             >
               {/* Avatar */}
@@ -165,7 +184,7 @@ export const Chat: React.FC = () => {
             </div>
             <div>
               <div className="text-white  text-base font-semibold">
-                {conversations.find((c) => c.id === selectedChat)?.name ||
+                {conversations.find((c) => c._id === selectedChat)?.name ||
                   "Md Sahjalal"}
               </div>
             </div>
