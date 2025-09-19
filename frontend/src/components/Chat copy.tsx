@@ -21,7 +21,6 @@ export const Chat: React.FC = () => {
   const socketRef = useRef<Socket | null>(null);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
 
-
   useEffect(() => {
     // create socket once
     socketRef.current = io(BACKEND);
@@ -39,24 +38,23 @@ export const Chat: React.FC = () => {
     });
 
     socket.on("receive_message", (msg: Message) => {
-      setMessages(prev => [...prev, msg]);
+      setMessages((prev) => [...prev, msg]);
     });
 
     socket.on("typing", ({ sender, isTyping }) => {
-  setTypingUsers((prev) => {
-    if (isTyping) {
-      // add sender if not already in the list
-      if (!prev.includes(sender)) {
-        return [...prev, sender];
-      }
-      return prev;
-    } else {
-      // remove sender when they stop typing
-      return prev.filter((u) => u !== sender);
-    }
-  });
-});
-
+      setTypingUsers((prev) => {
+        if (isTyping) {
+          // add sender if not already in the list
+          if (!prev.includes(sender)) {
+            return [...prev, sender];
+          }
+          return prev;
+        } else {
+          // remove sender when they stop typing
+          return prev.filter((u) => u !== sender);
+        }
+      });
+    });
 
     return () => {
       socket.disconnect();
@@ -78,77 +76,100 @@ export const Chat: React.FC = () => {
   };
 
   const sendMessage = () => {
-  if (message.trim()) {
-    socketRef.current?.emit("chatMessage", {
-      room,
-      sender: username,
-      text: message,
-    });
+    if (message.trim()) {
+      socketRef.current?.emit("send_message", {
+        room,
+        sender: username,
+        text: message,
+      });
 
-    // stop typing indicator after send
-    socketRef.current?.emit("typing", {
-      room,
-      sender: username,
-      isTyping: false,
-    });
+      // stop typing indicator after send
+      socketRef.current?.emit("typing", {
+        room,
+        sender: username,
+        isTyping: false,
+      });
 
-    setMessage("");
-  }
-};
-
+      setMessage("");
+    }
+  };
 
   return (
-    <div style={{ maxWidth: 700, margin: "20px auto", fontFamily: "sans-serif" }}>
+    <div
+      style={{ maxWidth: 700, margin: "20px auto", fontFamily: "sans-serif" }}
+    >
       <h2>Simple Chat</h2>
       <div>
-        <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Your name" />
-        <input value={room} onChange={e=>setRoom(e.target.value)} placeholder="Room (e.g. global)" />
+        <input
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          placeholder="Your name"
+        />
+        <input
+          value={room}
+          onChange={(e) => setRoom(e.target.value)}
+          placeholder="Room (e.g. global)"
+        />
         <button onClick={joinRoom}>Join Room</button>
-        <span style={{ marginLeft: 10 }}>{connected ? "● online" : "● offline"}</span>
+        <span style={{ marginLeft: 10 }}>
+          {connected ? "● online" : "● offline"}
+        </span>
       </div>
 
-      <div style={{ border: "1px solid #ddd", height: 350, overflowY: "auto", padding: 10, marginTop: 10 }}>
+      <div
+        style={{
+          border: "1px solid #ddd",
+          height: 350,
+          overflowY: "auto",
+          padding: 10,
+          marginTop: 10,
+        }}
+      >
         {messages.map((m) => (
           <div key={m._id ?? Math.random()} style={{ marginBottom: 8 }}>
             <strong>{m.sender}</strong>: <span>{m.content}</span>
-            <div style={{ fontSize: 11, color: "#666" }}>{new Date(m.createdAt).toLocaleString()}</div>
+            <div style={{ fontSize: 11, color: "#666" }}>
+              {new Date(m.createdAt).toLocaleString()}
+            </div>
           </div>
         ))}
       </div>
 
       <div style={{ marginTop: 8 }}>
         <input
-  type="text"
-  value={message}
-  onChange={(e) => {
-    setMessage(e.target.value);
+          type="text"
+          value={message}
+          onChange={(e) => {
+            setMessage(e.target.value);
 
-    socketRef.current?.emit("typing", {
-      room,
-      sender: username,
-      isTyping: e.target.value.length > 0, // only true when not empty
-    });
-  }}
-  onBlur={() => {
-    // when focus out
-    socketRef.current?.emit("typing", {
-      room,
-      sender: username,
-      isTyping: false,
-    });
-  }}
-/>
+            socketRef.current?.emit("typing", {
+              room,
+              sender: username,
+              isTyping: e.target.value.length > 0, // only true when not empty
+            });
+          }}
+          onBlur={() => {
+            // when focus out
+            socketRef.current?.emit("typing", {
+              room,
+              sender: username,
+              isTyping: false,
+            });
+          }}
+        />
 
         <button onClick={sendMessage}>Send</button>
       </div>
-      <div style={{ height: 20, color: "gray", fontStyle: "italic", marginTop: 4 }}>
-  {typingUsers.length > 0 && (
-    <span>
-      {typingUsers.join(", ")} {typingUsers.length > 1 ? "are" : "is"} typing...
-    </span>
-  )}
-</div>
-
+      <div
+        style={{ height: 20, color: "gray", fontStyle: "italic", marginTop: 4 }}
+      >
+        {typingUsers.length > 0 && (
+          <span>
+            {typingUsers.join(", ")} {typingUsers.length > 1 ? "are" : "is"}{" "}
+            typing...
+          </span>
+        )}
+      </div>
     </div>
   );
 };

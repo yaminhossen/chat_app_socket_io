@@ -1,14 +1,101 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { io, Socket } from "socket.io-client";
+
+const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
 export const Chat: React.FC = () => {
   const [selectedChat, setSelectedChat] = useState<string>("user_1");
 
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [connected, setConnected] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+
+  useEffect(() => {
+    // create socket once
+    socketRef.current = io(BACKEND);
+
+    const socket = socketRef.current;
+
+    socket.on("connect", () => {
+      setConnected(true);
+      console.log("connected socket", socket);
+      console.log("connected", socket.id);
+    });
+
+    socket.on("disconnect", () => {
+      setConnected(false);
+    });
+
+    socket.on("receive_message", (msg: Message) => {
+      setMessages((prev) => [...prev, msg]);
+    });
+
+    socket.on("typing", ({ sender, isTyping }) => {
+      setTypingUsers((prev) => {
+        if (isTyping) {
+          // add sender if not already in the list
+          if (!prev.includes(sender)) {
+            return [...prev, sender];
+          }
+          return prev;
+        } else {
+          // remove sender when they stop typing
+          return prev.filter((u) => u !== sender);
+        }
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+// user create
+  const create_user = async () => {
+    const socket = socketRef.current!;
+    socket.emit("create_user", { username, room });
+
+    // load history
+    // try {
+    //   const res = await axios.get<Message[]>(`${BACKEND}/messages/${room}`);
+    //   setMessages(res.data);
+    // } catch (err) {
+    //   console.error(err);
+    // }
+  };
+
   // Mock data for display
   const conversations = [
-    { id: "group_1", name: "Group_1", lastMessage: "dfgdf", time: "2 hours ago", type: "group" },
-    { id: "user_1", name: "Md Sahjalal", lastMessage: "hey jalal", time: "3 hours ago", type: "user" },
-    { id: "user_2", name: "Md Mahfuz", lastMessage: "hey jalal", time: "3 hours ago", type: "user" },
-    { id: "user_3", name: "Md Zawad", lastMessage: "hey jalal", time: "3 hours ago", type: "user" }
+    {
+      id: "group_1",
+      name: "Group_1",
+      lastMessage: "dfgdf",
+      time: "2 hours ago",
+      type: "group",
+    },
+    {
+      id: "user_1",
+      name: "Md Sahjalal",
+      lastMessage: "hey jalal",
+      time: "3 hours ago",
+      type: "user",
+    },
+    {
+      id: "user_2",
+      name: "Md Mahfuz",
+      lastMessage: "hey jalal",
+      time: "3 hours ago",
+      type: "user",
+    },
+    {
+      id: "user_3",
+      name: "Md Zawad",
+      lastMessage: "hey jalal",
+      time: "3 hours ago",
+      type: "user",
+    },
   ];
 
   return (
@@ -35,16 +122,20 @@ export const Chat: React.FC = () => {
               key={conv.id}
               onClick={() => setSelectedChat(conv.id)}
               className={`p-3 cursor-pointer border-b border-gray-700 flex items-center gap-3 transition-colors hover:bg-gray-800 ${
-                selectedChat === conv.id ? 'bg-gray-800' : ''
+                selectedChat === conv.id ? "bg-gray-800" : ""
               }`}
             >
               {/* Avatar */}
-              <div className={`w-10 h-10 flex items-center justify-center text-white text-sm font-semibold ${
-                conv.type === "group" 
-                  ? 'rounded-lg bg-indigo-600' 
-                  : 'rounded-full bg-gray-600'
-              }`}>
-                {conv.type === "group" ? "📱" : conv.name.charAt(0).toUpperCase()}
+              <div
+                className={`w-10 h-10 flex items-center justify-center text-white text-sm font-semibold ${
+                  conv.type === "group"
+                    ? "rounded-lg bg-indigo-600"
+                    : "rounded-full bg-gray-600"
+                }`}
+              >
+                {conv.type === "group"
+                  ? "📱"
+                  : conv.name.charAt(0).toUpperCase()}
               </div>
 
               {/* Conversation Info */}
@@ -53,9 +144,7 @@ export const Chat: React.FC = () => {
                   <div className="text-white text-sm font-medium overflow-hidden text-ellipsis whitespace-nowrap">
                     {conv.name}
                   </div>
-                  <div className="text-gray-400 text-xs">
-                    {conv.time}
-                  </div>
+                  <div className="text-gray-400 text-xs">{conv.time}</div>
                 </div>
                 <div className="text-gray-400 text-xs overflow-hidden text-ellipsis whitespace-nowrap mt-0.5">
                   {conv.lastMessage}
@@ -76,7 +165,8 @@ export const Chat: React.FC = () => {
             </div>
             <div>
               <div className="text-white  text-base font-semibold">
-                {conversations.find(c => c.id === selectedChat)?.name || "Md Sahjalal"}
+                {conversations.find((c) => c.id === selectedChat)?.name ||
+                  "Md Sahjalal"}
               </div>
             </div>
           </div>

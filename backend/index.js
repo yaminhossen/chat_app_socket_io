@@ -6,6 +6,9 @@ const { Server } = require('socket.io');
 require('dotenv').config();
 
 const Message = require('./models/Message');
+const GroupUser = require('./models/Group_user');
+const Room = require('./models/Room');
+const User = require('./models/User');
 
 const app = express();
 app.use(cors({
@@ -41,6 +44,18 @@ app.get('/messages/:room', async (req, res) => {
     return res.status(500).json({ error: 'Server error' });
   }
 });
+// create user
+app.post('/create/user', async (req, res) => {
+  console.log('req.body', req.body);
+  const { name, email, password } = req.body;
+  try {
+    const user = new User({ name, email, password });
+    await user.save();
+    return res.status(201).json(user);
+  } catch (err) {
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // socket.io logic
 io.on('connection', (socket) => {
@@ -52,9 +67,12 @@ io.on('connection', (socket) => {
     console.log(`${socket.id} joined ${room}`);
   });
 
+ 
+  
   // handle sending message
   socket.on('send_message', async (data) => {
     // expected data: { room, sender, text }
+    console.log('send_message', data);
     try {
       const message = new Message({
         room: data.room,

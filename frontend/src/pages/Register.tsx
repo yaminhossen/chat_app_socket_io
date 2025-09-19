@@ -1,9 +1,12 @@
-import React, { useState } from "react";
+import axios from "axios";
+import React, {useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+
+const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
 export const Register: React.FC = () => {
   const [formData, setFormData] = useState({
-    fullName: "",
+    name: "",
     email: "",
     password: "",
     confirmPassword: ""
@@ -29,7 +32,7 @@ export const Register: React.FC = () => {
       newErrors.push("Password must be at least 6 characters long");
     }
 
-    if (!formData.fullName.trim()) {
+    if (!formData.name.trim()) {
       newErrors.push("Full name is required");
     }
 
@@ -37,13 +40,20 @@ export const Register: React.FC = () => {
     return newErrors.length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async(e: React.FormEvent) => {
     e.preventDefault();
     
     if (validateForm()) {
-      // For now, just navigate to login - you can add registration logic later
+      // load history
+    try {
+      const res = await axios.post(`${BACKEND}/create/user`, formData);
+      console.log("Registration response:", res.data);
+      
+    } catch (err) {
+      console.error(err);
+    }
       console.log("Registration attempt:", formData);
-      navigate("/login");
+      // navigate("/login");
     }
   };
 
@@ -67,14 +77,14 @@ export const Register: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="fullName" className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
               Full Name
             </label>
             <input
               type="text"
-              id="fullName"
-              name="fullName"
-              value={formData.fullName}
+              id="name"
+              name="name"
+              value={formData.name}
               onChange={handleChange}
               required
               className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"

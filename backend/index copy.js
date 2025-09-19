@@ -6,6 +6,9 @@ const { Server } = require('socket.io');
 require('dotenv').config();
 
 const Message = require('./models/Message');
+const GroupUser = require('./models/Group_user');
+const Room = require('./models/Room');
+const User = require('./models/User');
 
 const app = express();
 app.use(cors({
@@ -24,7 +27,7 @@ const io = new Server(server, {
 });
 
 // connect to mongo
-mongoose.connect(process.env.MONGO_URI, {
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/chat', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
@@ -51,10 +54,11 @@ io.on('connection', (socket) => {
     socket.join(room);
     console.log(`${socket.id} joined ${room}`);
   });
-
+  
   // handle sending message
   socket.on('send_message', async (data) => {
     // expected data: { room, sender, text }
+    console.log('send_message', data);
     try {
       const message = new Message({
         room: data.room,
