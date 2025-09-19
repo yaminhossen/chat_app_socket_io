@@ -1,6 +1,6 @@
 import axios from "axios";
 import React, {useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
@@ -12,7 +12,7 @@ export const Register: React.FC = () => {
     confirmPassword: ""
   });
   const [errors, setErrors] = useState<string[]>([]);
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
