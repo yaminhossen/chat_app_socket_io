@@ -38,7 +38,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/chat', {
 app.get('/messages/:room', async (req, res) => {
   const { room } = req.params;
   try {
-    const messages = await Message.find({ room }).sort({ createdAt: 1 }).limit(200);
+    const messages = await Message.find({ room_id: room }).sort({ createdAt: 1 }).limit(200);
     return res.json(messages);
   } catch (err) {
     return res.status(500).json({ error: 'Server error' });
@@ -121,9 +121,9 @@ io.on('connection', (socket) => {
     console.log('send_message', data);
     try {
       const message = new Message({
-        room: data.room,
-        sender: data.sender,
-        content: data.text
+        room_id: data.room,
+        sender_id: data.sender,
+        content: data.content
       });
       await message.save();
 

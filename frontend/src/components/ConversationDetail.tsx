@@ -23,25 +23,25 @@ interface Conversation {
 // Mock data for conversations - in real app, this would come from your backend
 const conversations: Conversation[] = [
   {
-    _id: "group_1",
+    _id: "68cdb2ac6ab38aaf6d8789fd",
     name: "Group_1",
     type: "group",
     isOnline: true,
   },
   {
-    _id: "user_1",
+    _id: "68cdb2c96ab38aaf6d878a01",
     name: "Md Sahjalal",
     type: "user",
     isOnline: true,
   },
   {
-    _id: "user_2",
+    _id: "68cdb2d06ab38aaf6d878a05",
     name: "Md Mahfuz",
     type: "user",
     isOnline: false,
   },
   {
-    _id: "user_3",
+    _id: "68cdb2d56ab38aaf6d878a09",
     name: "Md Zawad",
     type: "user",
     isOnline: true,
@@ -52,13 +52,15 @@ export const ConversationDetail: React.FC = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [conversationData, setConversationData] = useState<Conversation | null>(null);
+  const [conversationData, setConversationData] = useState<Conversation | null>(
+    null
+  );
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
     // Find conversation data
-    const conv = conversations.find(c => c._id === conversationId);
+    const conv = conversations.find((c) => c._id === conversationId);
     setConversationData(conv || null);
 
     // Initialize socket connection
@@ -96,7 +98,9 @@ export const ConversationDetail: React.FC = () => {
     // Load message history
     const loadMessages = async () => {
       try {
-        const res = await axios.get<Message[]>(`${BACKEND}/messages/${conversationId}`);
+        const res = await axios.get<Message[]>(
+          `${BACKEND}/messages/${conversationId}`
+        );
         setMessages(res.data);
       } catch (err) {
         console.error("Error loading messages:", err);
@@ -118,13 +122,16 @@ export const ConversationDetail: React.FC = () => {
     if (message.trim() && socketRef.current && conversationId) {
       const newMessage: Message = {
         id: Date.now().toString(),
-        sender: "current_user", // In real app, get from auth context
+        sender: "68cdaf456654b2a6e948dfca", // In real app, get from auth context
         content: message,
         timestamp: new Date().toISOString(),
         room: conversationId,
       };
 
       socketRef.current.emit("send_message", newMessage);
+
+      // optimistically add to UI
+      setMessages((prev) => [...prev, newMessage]);
       setMessage("");
     }
   };
@@ -148,11 +155,13 @@ export const ConversationDetail: React.FC = () => {
       {/* Chat Header */}
       <div className="px-5 py-4 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className={`w-8 h-8 flex items-center justify-center text-white text-sm font-semibold ${
-            conversationData.type === "group"
-              ? "rounded-lg bg-indigo-600"
-              : "rounded-full bg-gray-600"
-          }`}>
+          <div
+            className={`w-8 h-8 flex items-center justify-center text-white text-sm font-semibold ${
+              conversationData.type === "group"
+                ? "rounded-lg bg-indigo-600"
+                : "rounded-full bg-gray-600"
+            }`}
+          >
             {conversationData.type === "group"
               ? "📱"
               : conversationData.name.charAt(0).toUpperCase()}
@@ -200,11 +209,12 @@ export const ConversationDetail: React.FC = () => {
             </div>
           ))
         )}
-        
+
         {/* Typing indicator */}
         {typingUsers.length > 0 && (
           <div className="text-gray-400 text-sm italic">
-            {typingUsers.join(", ")} {typingUsers.length === 1 ? "is" : "are"} typing...
+            {typingUsers.join(", ")} {typingUsers.length === 1 ? "is" : "are"}{" "}
+            typing...
           </div>
         )}
       </div>
