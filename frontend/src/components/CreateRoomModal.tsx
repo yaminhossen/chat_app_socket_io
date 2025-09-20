@@ -68,16 +68,18 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
     setLoading(true);
     try {
       const response = await axios.post(`${BACKEND}/create/room`, {
-        fr_id: selectedUserId, // Current user will be added by backend
-        type: "direct", // Direct message room
+        user_b: selectedUserId, // Current user will be added by backend
+        type: "single", // Single chat room
       });
 
       onRoomCreated(response.data);
       onClose();
       setSelectedUserId("");
     } catch (err) {
+      console.log('error-----', err);
+
       console.error("Error creating room:", err);
-      alert("Failed to create room. Please try again.");
+      alert(`Failed to create room. Please try again. ${err}`);
     } finally {
       setLoading(false);
     }

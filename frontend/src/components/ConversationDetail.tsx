@@ -6,7 +6,7 @@ import axios from "axios";
 const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
 interface Message {
-  id: string;
+  _id: string;
   sender: string;
   content: string;
   timestamp: string;
@@ -121,7 +121,7 @@ export const ConversationDetail: React.FC = () => {
   const sendMessage = () => {
     if (message.trim() && socketRef.current && conversationId) {
       const newMessage: Message = {
-        id: Date.now().toString(),
+        _id: Date.now().toString(),
         sender: "68cdaf456654b2a6e948dfca", // In real app, get from auth context
         content: message,
         timestamp: new Date().toISOString(),
@@ -189,7 +189,7 @@ export const ConversationDetail: React.FC = () => {
         ) : (
           messages.map((msg) => (
             <div
-              key={msg.id}
+              key={msg._id}
               className={`mb-4 ${
                 msg.sender === "current_user" ? "text-right" : "text-left"
               }`}
