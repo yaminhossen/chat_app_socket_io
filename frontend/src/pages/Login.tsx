@@ -6,26 +6,34 @@ const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 export const Login: React.FC = () => {
   const [formData, setFormData] = useState({
     email: "",
-    password: ""
+    password: "",
   });
   const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await axios.post(`${BACKEND}/auth/login`, formData);
+      const res = await axios.post(`${BACKEND}/auth/login`, formData, {
+        withCredentials: true, // 👈 This enables cookies
+      });
       console.log("Login response:", res.data);
+
+      // Test if cookie was set by calling the test endpoint
+      const testRes = await axios.get(`${BACKEND}/test/cookies`, {
+        withCredentials: true,
+      });
+      console.log("Cookie test response:", testRes.data);
 
       navigate("/chat");
     } catch (err) {
-      console.error(err);
+      console.error("Login error:", err);
     }
   };
 
@@ -39,7 +47,10 @@ export const Login: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-300 mb-2"
+            >
               Email Address
             </label>
             <input
@@ -55,7 +66,10 @@ export const Login: React.FC = () => {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-300 mb-2"
+            >
               Password
             </label>
             <input
@@ -78,13 +92,19 @@ export const Login: React.FC = () => {
                 type="checkbox"
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-600 bg-gray-700 rounded"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-300">
+              <label
+                htmlFor="remember-me"
+                className="ml-2 block text-sm text-gray-300"
+              >
                 Remember me
               </label>
             </div>
 
             <div className="text-sm">
-              <a href="#" className="text-blue-400 hover:text-blue-300 transition-colors">
+              <a
+                href="#"
+                className="text-blue-400 hover:text-blue-300 transition-colors"
+              >
                 Forgot password?
               </a>
             </div>
@@ -101,7 +121,10 @@ export const Login: React.FC = () => {
         <div className="mt-6 text-center">
           <p className="text-gray-400">
             Don't have an account?{" "}
-            <Link to="/register" className="text-blue-400 hover:text-blue-300 transition-colors font-medium">
+            <Link
+              to="/register"
+              className="text-blue-400 hover:text-blue-300 transition-colors font-medium"
+            >
               Sign up here
             </Link>
           </p>

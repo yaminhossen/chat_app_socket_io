@@ -28,6 +28,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "super_secret_key";
 const authenticateToken = (req, res, next) => {
   // Check for token in cookies or Authorization header
   const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+console.log("Authenticating token-------:", token);
 
   if (!token) {
     return res.status(401).json({ message: "Access token required" });
@@ -35,6 +36,8 @@ const authenticateToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    console.log("Decoded token:-=-=-=-", decoded);
+    
     req.user = decoded;
     next();
   } catch (error) {
@@ -49,6 +52,7 @@ const io = new Server(server, {
   cors: {
     origin: process.env.CLIENT_URL || "http://localhost:5173",
     methods: ["GET", "POST"],
+    credentials: true, // 👈 allow cookies
   },
 });
 
@@ -86,7 +90,9 @@ app.get("/users", async (req, res) => {
 });
 
 // REST endpoint to fetch all rooms
-app.get("/rooms", async (req, res) => {
+app.get("/rooms", authenticateToken, async (req, res) => {
+  console.log("User in /rooms:", req.user);
+  
   try {
     const rooms = await Room.find();
     return res.json(rooms);
@@ -246,13 +252,18 @@ app.post("/auth/login", async (req, res) => {
     // Set cookie
     res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      secure: false, // ❌ don't use HTTPS in localhost
+      sameSite: "lax", // ✅ allows cross-site localhost requests
+      maxAge: 24 * 60 * 60 * 1000,
     });
-
+    
+    console.log("Cookie set with token:", token);
+    console.log("Response headers before sending:", res.getHeaders());
+    
+    // res.header('Set-Cookie', `token=${token}; HttpOnly; Max-Age=86400; Path=/; SameSite=Strict`);
     res.json({
       message: "Login successful",
+      token: token, // Also send token in response for debugging
       user: {
         id: user._id,
         name: user.name,
@@ -313,6 +324,17 @@ app.post("/auth/register", async (req, res) => {
 app.post("/auth/logout", (req, res) => {
   res.clearCookie("token");
   res.json({ message: "Logout successful" });
+});
+
+// Test route to check cookies
+app.get("/test/cookies", (req, res) => {
+  console.log("All cookies received:", req.cookies);
+  console.log("Token cookie:", req.cookies.token);
+  res.json({
+    message: "Cookie test",
+    cookies: req.cookies,
+    hasToken: !!req.cookies.token,
+  });
 });
 
 // Protected route example
