@@ -2,6 +2,8 @@ const express = require("express");
 const http = require("http");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 const { Server } = require("socket.io");
 require("dotenv").config();
 
@@ -14,9 +16,31 @@ const app = express();
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
+    credentials: true, // Enable credentials for cookies
   })
 );
 app.use(express.json());
+app.use(cookieParser());
+
+const JWT_SECRET = process.env.JWT_SECRET || "super_secret_key";
+
+// JWT Middleware for authentication
+const authenticateToken = (req, res, next) => {
+  // Check for token in cookies or Authorization header
+  const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ message: "Access token required" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(403).json({ message: "Invalid or expired token" });
+  }
+};
 
 const server = http.createServer(app);
 
@@ -50,10 +74,11 @@ app.get("/messages/:room", async (req, res) => {
   }
 });
 
-// REST endpoint to fetch all users
+// REST endpoint to fetch all users (protected route example)
 app.get("/users", async (req, res) => {
   try {
-    const users = await User.find();
+    // const users = await User.find().select("-password"); // Exclude passwords
+    const users = await User.find(); // Exclude passwords
     return res.json(users);
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
@@ -181,6 +206,126 @@ app.post("/create/room", async (req, res) => {
   } catch (err) {
     console.error("Error creating room:", err);
     return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Authentication Routes
+
+// Login route
+app.post("/auth/login", async (req, res) => {
+  const { email, password } = req.body;
+  console.log("Login attempt", email);
+
+  try {
+    // Find user by email
+    const user = await User.findOne({ email: email });
+    console.log("user", user);
+
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // In a real app, you should hash passwords and compare them
+    // For now, direct comparison (you should implement password hashing)
+    if (user.password !== password) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // create secret
+    let secret = Math.random().toString(36).substring(2, 10);
+    // Create JWT token
+    const token = jwt.sign(
+      { userId: user._id, email: user.email, name: secret },
+      JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+    console.log("Generated token", token);
+
+    user.token = secret;
+    await user.save();
+    // Set cookie
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    });
+
+    res.json({
+      message: "Login successful",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Register route
+app.post("/auth/register", async (req, res) => {
+  const { name, email, password } = req.body;
+
+  try {
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    // Create new user (in real app, hash the password)
+    const user = new User({ name, email, password });
+    await user.save();
+
+    // Create JWT token
+    const token = jwt.sign(
+      { userId: user._id, email: user.email, name: user.name },
+      JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    // Set cookie
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    });
+
+    res.status(201).json({
+      message: "Registration successful",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (err) {
+    console.error("Registration error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Logout route
+app.post("/auth/logout", (req, res) => {
+  res.clearCookie("token");
+  res.json({ message: "Logout successful" });
+});
+
+// Protected route example
+app.get("/auth/me", authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json(user);
+  } catch (err) {
+    console.error("Get user error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 

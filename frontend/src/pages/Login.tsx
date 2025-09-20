@@ -20,7 +20,7 @@ export const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await axios.post(`${BACKEND}/login`, formData);
+      const res = await axios.post(`${BACKEND}/auth/login`, formData);
       console.log("Login response:", res.data);
 
       navigate("/chat");
