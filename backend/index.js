@@ -25,7 +25,7 @@ app.use(cookieParser());
 const JWT_SECRET = process.env.JWT_SECRET || "super_secret_key";
 
 // JWT Middleware for authentication
-const authenticateToken = (req, res, next) => {
+const authenticateToken = async(req, res, next) => {
   // Check for token in cookies or Authorization header
   const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
 console.log("Authenticating token-------:", token);
@@ -36,9 +36,13 @@ console.log("Authenticating token-------:", token);
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    console.log("Decoded token:-=-=-=-", decoded);
-    
-    req.user = decoded;
+    const finduser = await User.findOne({email: decoded.email});
+
+    if(finduser.token === decoded.name){
+      req.user = decoded;
+    } else {
+      return res.status(403).json({ message: "Invalid or expired token" });
+    }
     next();
   } catch (error) {
     return res.status(403).json({ message: "Invalid or expired token" });
@@ -92,10 +96,15 @@ app.get("/users", async (req, res) => {
 // REST endpoint to fetch all rooms
 app.get("/rooms", authenticateToken, async (req, res) => {
   console.log("User in /rooms:", req.user);
-  
+  let user_id = req.user.userId;
+  console.log("user_id", user_id);
   try {
-    const rooms = await Room.find();
-    return res.json(rooms);
+    const userRooms = await GroupUser.find({ user_id: user_id }).select("room_id -_id");
+    const roomIds = userRooms.map((gr) => gr.room_id);
+    const rooms = await Room.find({ _id: { $in: roomIds } });
+    return res.json(rooms);  
+    // const rooms = await Room.find();
+    // return res.json(rooms);
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
@@ -141,12 +150,13 @@ app.post("/create/user", async (req, res) => {
 // });
 
 // create room
-app.post("/create/room", async (req, res) => {
-  const { user_b, user_id, members, type } = req.body;
+app.post("/create/room", authenticateToken, async (req, res) => {
+  const { user_b, members, type } = req.body;
   // `user_id` = who is creating room
   // `user_b` = friend id (for single chat)
   // `members` = array of user_ids (for group chat)
   // `type` = "single" or "group"
+  let user_id = req.user.userId;
 
   try {
     let room;

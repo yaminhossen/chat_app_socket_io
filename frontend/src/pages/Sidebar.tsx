@@ -41,7 +41,7 @@ export const Sidebar: React.FC = () => {
       const res = await axios.get(`${BACKEND}/rooms`);
       setConversations(res.data);
     } catch (err) {
-      console.error("Error loading conversations:", err);
+      window.location.href = "/login";
     }
   }, []);
 
