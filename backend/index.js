@@ -82,39 +82,104 @@ app.post("/create/user", async (req, res) => {
   }
 });
 // create room
+// app.post("/create/room", async (req, res) => {
+//   const { user_b } = req.body;
+//   console.log("req.body", user_b);
+//   try {
+//     const existingRoom = await Room.findOne({ user_b: user_b });
+//     if (existingRoom) {
+//       return res.status(404).json({ error: "Room already exists" });
+//     }
+//     const friend = await User.findOne({ _id: user_b });
+//     if (!friend) {
+//       return res.status(404).json({ error: "Friend not found" });
+//     }
+
+//     const room = new Room({
+//       name: friend.name,
+//       type: "single",
+//       user_a: '68cdaf456654b2a6e948dfca',
+//       // user_a: req.user._id,
+//       user_b: friend._id,
+//     });
+//     await room.save();
+//     return res.status(201).json(room);
+//   } catch (err) {
+//     return res.status(500).json({ error: "Server error" });
+//   }
+// });
+
+// create room
 app.post("/create/room", async (req, res) => {
-  const { user_b } = req.body;
-  console.log("req.body", user_b);
+  const { user_b, user_id, members, type } = req.body;
+  // `user_id` = who is creating room
+  // `user_b` = friend id (for single chat)
+  // `members` = array of user_ids (for group chat)
+  // `type` = "single" or "group"
+
   try {
-    // find the first user in Users collection
-    // const firstUser = await User.findOne().sort({ _id: 1 });
+    let room;
 
-    // if (!firstUser) {
-    //   return res.status(404).json({ error: "No users found in the database" });
-    // }
-    const existingRoom = await Room.findOne({ user_b: user_b });
+    if (type === "single") {
+      // Check if room already exists between these two users
+      const existingRoom = await Room.findOne({
+        type: "single",
+        $or: [
+          { user_a: user_id, user_b: user_b },
+          { user_a: user_b, user_b: user_id },
+        ],
+      });
 
-    console.log("existingRoom", existingRoom);
-    if (existingRoom) {
-      return res.status(404).json({ error: "Room already exists" });
+      if (existingRoom) {
+        return res.status(400).json({ error: "single room already exists" });
+      }
+
+      // Create new single room
+      const friend = await User.findById(user_b);
+      if (!friend) {
+        return res.status(404).json({ error: "Friend not found" });
+      }
+
+      room = new Room({
+        name: friend.name,
+        type: "single",
+        user_a: user_id,
+        user_b: user_b,
+      });
+      await room.save();
+
+      // Create GroupUser for creator and friend
+      const groupUsers = [
+        { user_id: user_id, room_id: room._id },
+        { user_id: user_b, room_id: room._id },
+      ];
+      await GroupUser.insertMany(groupUsers);
+    } else if (type === "group") {
+      // Create group room
+      room = new Room({
+        name: req.body.name || "Unnamed Group",
+        type: "group",
+      });
+      await room.save();
+
+      // Ensure creator is in the members list
+      const allMembers = [...new Set([user_id, ...(members || [])])];
+      // Create GroupUser for all members
+      const groupUsers = allMembers.map(
+        (m) => (
+          console.log(m),
+          {
+            user_id: m,
+            room_id: room._id,
+          }
+        )
+      );
+      await GroupUser.insertMany(groupUsers);
     }
-    const friend = await User.findOne({ _id: user_b });
 
-    console.log("friend", friend);
-    if (!friend) {
-      return res.status(404).json({ error: "Friend not found" });
-    }
-
-    const room = new Room({
-      name: friend.name,
-      type: "private",
-      user_a: '68cdaf456654b2a6e948dfca',
-      // user_a: req.user._id,
-      user_b: friend._id,
-    });
-    await room.save();
     return res.status(201).json(room);
   } catch (err) {
+    console.error("Error creating room:", err);
     return res.status(500).json({ error: "Server error" });
   }
 });

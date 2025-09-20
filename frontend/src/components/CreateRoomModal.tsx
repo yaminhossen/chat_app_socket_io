@@ -68,6 +68,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
     setLoading(true);
     try {
       const response = await axios.post(`${BACKEND}/create/room`, {
+        user_id: '68cdaf456654b2a6e948dfca', // Current user will be added by backend
         user_b: selectedUserId, // Current user will be added by backend
         type: "single", // Single chat room
       });

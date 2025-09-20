@@ -12,7 +12,7 @@ interface User {
 interface Group {
   _id: string;
   name: string;
-  participants: string[];
+  members: string[];
   type: string;
   createdAt: string;
 }
@@ -75,10 +75,13 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     }
 
     setLoading(true);
+    console.log('selectedUserIds----', selectedUserIds);
+    
     try {
-      const response = await axios.post(`${BACKEND}/groups`, {
+      const response = await axios.post(`${BACKEND}/create/room`, {
         name: groupName,
-        participants: selectedUserIds, // Current user will be added by backend
+        user_id: '68cdaf456654b2a6e948dfca', // Current user will be added by backend
+        members: selectedUserIds, // Current user will be added by backend
         type: "group",
       });
 
