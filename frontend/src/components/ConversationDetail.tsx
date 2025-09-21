@@ -5,13 +5,35 @@ import axios from "axios";
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
+// interface Message {
+//   _id: string;
+//   sender_id?: string;
+//   content: string;
+//   timestamp: string;
+//   room: string;
+// }
+// One message
 interface Message {
   _id: string;
-  sender: string;
+  sender_id?: string;
   content: string;
   timestamp: string;
   room: string;
 }
+
+// User (from your JWT / DB)
+interface AuthUser {
+  userId: string;
+  email: string;
+  name?: string;
+}
+
+// Full API response
+interface MessagesResponse {
+  user: AuthUser;
+  messages: Message[];
+}
+
 
 interface Conversation {
   _id: string;
@@ -35,7 +57,7 @@ const conversations: Conversation[] = [
     isOnline: true,
   },
   {
-    _id: "68cdb2d06ab38aaf6d878a05",
+    _id: "68ce6eb46bb59a170d903740",
     name: "Md Mahfuz",
     type: "user",
     isOnline: false,
@@ -51,6 +73,7 @@ const conversations: Conversation[] = [
 export const ConversationDetail: React.FC = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
   const [message, setMessage] = useState("");
+  const [authUser, setAuthUser] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationData, setConversationData] = useState<Conversation | null>(
     null
@@ -98,10 +121,11 @@ export const ConversationDetail: React.FC = () => {
     // Load message history
     const loadMessages = async () => {
       try {
-        const res = await axios.get<Message[]>(
+        const res = await axios.get<MessagesResponse>(
           `${BACKEND}/messages/${conversationId}`
         );
-        setMessages(res.data);
+        setMessages(res.data.messages);
+        setAuthUser(res.data.user.userId);
       } catch (err) {
         console.error("Error loading messages:", err);
       }
@@ -118,11 +142,31 @@ export const ConversationDetail: React.FC = () => {
     };
   }, [conversationId]);
 
+  // useEffect(() => {
+  //   const fetchData = async () => {
+  //     try {
+  //       // login
+  //       const res = await axios.get("http://localhost:5000/me", {
+  //         withCredentials: true,
+  //       });
+  //       console.log('auth data',res.data.user); 
+  //       setAuthUser(res.data.user.userId);
+  //       console.log("auth daata", res.data);
+  //     } catch (err) {
+  //       console.error("Error:", err);
+  //     }
+  //   };
+
+  //   fetchData();
+  // }, []);
+  console.log("authUser", authUser);
+  
+
   const sendMessage = () => {
     if (message.trim() && socketRef.current && conversationId) {
       const newMessage: Message = {
         _id: Date.now().toString(),
-        sender: "68cdaf456654b2a6e948dfca", // In real app, get from auth context
+        // sender: "68cdaf456654b2a6e948dfca", // In real app, get from auth context
         content: message,
         timestamp: new Date().toISOString(),
         room: conversationId,
@@ -149,6 +193,15 @@ export const ConversationDetail: React.FC = () => {
       </div>
     );
   }
+//   return (
+//   <div>
+//     {authUser ? (
+//       <p>User ID: {authUser}</p>
+//     ) : (
+//       <p>Loading user...</p>
+//     )}
+//   </div>
+// );
 
   return (
     <div className="flex-1 flex flex-col bg-gray-800">
@@ -191,12 +244,12 @@ export const ConversationDetail: React.FC = () => {
             <div
               key={msg._id}
               className={`mb-4 ${
-                msg.sender === "current_user" ? "text-right" : "text-left"
+                msg.sender_id === authUser ? "text-right" : "text-left"
               }`}
             >
               <div
                 className={`inline-block px-4 py-2 rounded-lg text-sm max-w-xs ${
-                  msg.sender === "current_user"
+                  msg.sender_id === authUser
                     ? "bg-blue-600 text-white"
                     : "bg-gray-700 text-gray-200"
                 }`}

@@ -70,13 +70,14 @@ mongoose
   .catch((err) => console.error("Mongo err", err));
 
 // REST endpoint to fetch history for a room
-app.get("/messages/:room", async (req, res) => {
+app.get("/messages/:room", authenticateToken, async (req, res) => {
   const { room } = req.params;
+  let user = req.user;
   try {
     const messages = await Message.find({ room_id: room })
       .sort({ createdAt: 1 })
       .limit(200);
-    return res.json(messages);
+    return res.json({ user: user, messages: messages });
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
@@ -108,6 +109,10 @@ app.get("/rooms", authenticateToken, async (req, res) => {
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
+});
+// just sent the authenticate user data in frontend
+app.get("/me", authenticateToken, (req, res) => {
+  res.json({ user: req.user }); // decoded user from JWT
 });
 // create user
 app.post("/create/user", async (req, res) => {
