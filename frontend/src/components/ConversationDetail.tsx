@@ -18,7 +18,7 @@ interface Message {
   sender_id?: string;
   content: string;
   timestamp: string;
-  room: string;
+  room_id: string;
 }
 
 // User (from your JWT / DB)
@@ -38,37 +38,38 @@ interface MessagesResponse {
 interface Conversation {
   _id: string;
   name: string;
-  type: "user" | "group";
+  type: "single" | "group";
   isOnline: boolean;
 }
 
 // Mock data for conversations - in real app, this would come from your backend
-const conversations: Conversation[] = [
-  {
-    _id: "68cdb2ac6ab38aaf6d8789fd",
-    name: "Group_1",
-    type: "group",
-    isOnline: true,
-  },
-  {
-    _id: "68cdb2c96ab38aaf6d878a01",
-    name: "Md Sahjalal",
-    type: "user",
-    isOnline: true,
-  },
-  {
-    _id: "68ce6eb46bb59a170d903740",
-    name: "Md Mahfuz",
-    type: "user",
-    isOnline: false,
-  },
-  {
-    _id: "68cdb2d56ab38aaf6d878a09",
-    name: "Md Zawad",
-    type: "user",
-    isOnline: true,
-  },
-];
+// const conversations: Conversation[] = [
+//   {
+//     _id: "68cdb2ac6ab38aaf6d8789fd",
+//     name: "Group_1",
+//     type: "group",
+//     isOnline: true,
+//   },
+//   {
+//     _id: "68cdb2c96ab38aaf6d878a01",
+//     name: "Md Sahjalal",
+//     type: "user",
+//     isOnline: true,
+//   },
+//   {
+//     _id: "68ce6eb46bb59a170d903740",
+//     name: "Md Mahfuz",
+//     type: "user",
+//     isOnline: false,
+//   },
+//   {
+//     _id: "68cdb2d56ab38aaf6d878a09",
+//     name: "Md Zawad",
+//     type: "user",
+//     isOnline: true,
+//   },
+// ];
+
 
 export const ConversationDetail: React.FC = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
@@ -80,6 +81,23 @@ export const ConversationDetail: React.FC = () => {
   );
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const socketRef = useRef<Socket | null>(null);
+   
+  const [conversations, setConversations] = useState([]);
+
+  const loadConversations = React.useCallback(async () => {
+    try {
+      const res = await axios.get(`${BACKEND}/rooms`);
+      setConversations(res.data);
+    } catch (err) {
+      console.log(err);
+      
+      window.location.href = "/login";
+    }
+  }, []);
+
+  useEffect(() => {
+    loadConversations();
+  }, []);
 
   useEffect(() => {
     // Find conversation data
@@ -100,14 +118,14 @@ export const ConversationDetail: React.FC = () => {
 
     // Listen for messages
     socket.on("receive_message", (msg: Message) => {
-      if (msg.room === conversationId) {
+      if (msg.room_id === conversationId) {
         setMessages((prev) => [...prev, msg]);
       }
     });
 
     // Listen for typing events
-    socket.on("typing", ({ sender, isTyping, room }) => {
-      if (room === conversationId) {
+    socket.on("typing", ({ sender, isTyping, room_id }) => {
+      if (room_id === conversationId) {
         setTypingUsers((prev) => {
           if (isTyping) {
             return prev.includes(sender) ? prev : [...prev, sender];
@@ -139,8 +157,11 @@ export const ConversationDetail: React.FC = () => {
       if (conversationId && socket) {
         socket.emit("leave_room", conversationId);
       }
+      // 🔴 Remove listeners to avoid duplicates
+    // socket.off("receive_message", handleReceiveMessage);
+    // socket.off("typing", handleTyping);
     };
-  }, [conversationId]);
+  }, [conversationId, conversations]);
 
   // useEffect(() => {
   //   const fetchData = async () => {
@@ -166,10 +187,10 @@ export const ConversationDetail: React.FC = () => {
     if (message.trim() && socketRef.current && conversationId) {
       const newMessage: Message = {
         _id: Date.now().toString(),
-        // sender: "68cdaf456654b2a6e948dfca", // In real app, get from auth context
+        sender_id: authUser, // In real app, get from auth context
         content: message,
         timestamp: new Date().toISOString(),
-        room: conversationId,
+        room_id: conversationId,
       };
 
       socketRef.current.emit("send_message", newMessage);

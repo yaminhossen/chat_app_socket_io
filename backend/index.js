@@ -378,18 +378,27 @@ io.on("connection", (socket) => {
 
   // handle sending message
   socket.on("send_message", async (data) => {
-    // expected data: { room, sender, text }
-    console.log("send_message", data);
+    let user_id = data.sender_id;
+    console.log("send_message", user_id, data);
+    const findroom = await Room.findOne({ _id: data.room_id });
+    let receiver_id;
+    if(user_id === findroom.user_a){
+      receiver_id = findroom.user_b;
+    } else {
+      receiver_id = findroom.user_a;
+    }
     try {
       const message = new Message({
-        room_id: data.room,
-        sender_id: data.sender,
+        room_id: data.room_id,
+        sender_id: user_id,
+        receiver_id: receiver_id,
         content: data.content,
+        type: findroom.type,
       });
       await message.save();
 
       // emit to everyone in the room
-      io.to(data.room).emit("receive_message", message);
+      io.to(data.room_id).emit("receive_message", message);
     } catch (err) {
       console.error("save msg error", err);
     }
