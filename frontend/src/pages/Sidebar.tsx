@@ -39,6 +39,8 @@ export const Sidebar: React.FC = () => {
   const loadConversations = React.useCallback(async () => {
     try {
       const res = await axios.get(`${BACKEND}/rooms`);
+      console.log('Rooms loaded:', res.data);
+      
       setConversations(res.data);
     } catch (err) {
       window.location.href = "/login";

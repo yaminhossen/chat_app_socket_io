@@ -100,15 +100,46 @@ app.get("/rooms", authenticateToken, async (req, res) => {
   let user_id = req.user.userId;
   console.log("user_id", user_id);
   try {
-    const userRooms = await GroupUser.find({ user_id: user_id }).select("room_id -_id");
-    const roomIds = userRooms.map((gr) => gr.room_id);
-    const rooms = await Room.find({ _id: { $in: roomIds } });
-    return res.json(rooms);  
-    // const rooms = await Room.find();
-    // return res.json(rooms);
-  } catch (err) {
-    return res.status(500).json({ error: "Server error" });
-  }
+  const userRooms = await GroupUser.find({ user_id: user_id }).select("room_id -_id");
+  const roomIds = userRooms.map((gr) => gr.room_id);
+
+  let rooms = await Room.find({ _id: { $in: roomIds } })
+    .populate("user_a", "name email") // populate only required fields
+    .populate("user_b", "name email");
+
+  // Transform rooms for frontend
+  const result = rooms.map((room) => {
+    if (room.type === "single") {
+      let otherUser;
+
+      if (room.user_a && room.user_a._id.toString() === user_id.toString()) {
+        otherUser = room.user_b;
+      } else if (room.user_b && room.user_b._id.toString() === user_id.toString()) {
+        otherUser = room.user_a;
+      }
+
+      return {
+        _id: room._id,
+        name: room.name,
+        type: room.type,
+        otherUser, // 👈 this will contain the other user object
+      };
+    }
+
+    // group room: just return as-is
+    return {
+      _id: room._id,
+      name: room.name,
+      type: room.type,
+    };
+  });
+
+  return res.json(result);
+} catch (err) {
+  console.error(err);
+  return res.status(500).json({ error: "Server error" });
+}
+
 });
 // just sent the authenticate user data in frontend
 app.get("/me", authenticateToken, (req, res) => {
