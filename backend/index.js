@@ -117,7 +117,7 @@ app.get("/rooms", authenticateToken, async (req, res) => {
   let user_id = req.user.userId;
   console.log("user_id", user_id);
   try {
-    const userRooms = await Room.find({ user_id: user_id }).select("room_id -_id");
+    const userRooms = await GroupUser.find({ user_id: user_id }).select("room_id -_id");
     const roomIds = userRooms.map((gr) => gr.room_id);
     const rooms = await Room.find({ _id: { $in: roomIds } });
     return res.json(rooms); 
