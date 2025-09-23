@@ -83,7 +83,9 @@ export const Sidebar: React.FC = () => {
     
     loadingRef.current = true;
     try {
-      const res = await axios.get(`${BACKEND}/rooms`);
+      const res = await axios.get(`${BACKEND}/rooms`, {
+        withCredentials: true
+      });
       console.log('Rooms loaded:', res.data);
       
       setConversations(res.data);

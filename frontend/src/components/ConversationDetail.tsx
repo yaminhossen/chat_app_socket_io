@@ -35,6 +35,18 @@ interface Conversation {
   isOnline: boolean;
 }
 
+// Full conversation data from API
+interface ConversationFromAPI {
+  _id: string;
+  name?: string;
+  type: "single" | "group";
+  participants?: any[];
+  members?: any[];
+  lastMessage?: string;
+  lastMessageTime?: string;
+  lastMessageSender?: string;
+}
+
 
 
 export const ConversationDetail: React.FC = () => {
@@ -46,12 +58,14 @@ export const ConversationDetail: React.FC = () => {
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const socketRef = useRef<Socket | null>(null);
 
-  const [conversations, setConversations] = useState([]);
+  const [conversations, setConversations] = useState<ConversationFromAPI[]>([]);
 
   // Load conversation list
   const loadConversations = React.useCallback(async () => {
     try {
-      const res = await axios.get(`${BACKEND}/rooms`);
+      const res = await axios.get(`${BACKEND}/rooms`, {
+        withCredentials: true
+      });
       setConversations(res.data);
     } catch (err) {
       console.log(err);
@@ -61,7 +75,7 @@ export const ConversationDetail: React.FC = () => {
 
   useEffect(() => {
     loadConversations();
-  }, []);
+  }, [loadConversations]);
 
   // Setup socket connection ONCE
   useEffect(() => {
@@ -102,21 +116,30 @@ export const ConversationDetail: React.FC = () => {
 
   // Handle conversation + load history
   useEffect(() => {
-    const conv = conversations.find((c) => c._id === conversationId);
-    setConversationData(conv || null);
-
-    const loadMessages = async () => {
+    const loadConversationAndMessages = async () => {
+      if (!conversationId) return;
+      
       try {
-        const res = await axios.get<MessagesResponse>(`${BACKEND}/messages/${conversationId}`);
+        // Always refresh conversations list when switching to a new conversation
+        // This ensures we have the latest data including newly created rooms
+        await loadConversations();
+        
+        // Load messages for this conversation
+        const res = await axios.get<MessagesResponse>(`${BACKEND}/messages/${conversationId}`, {
+          withCredentials: true
+        });
         setMessages(res.data.messages);
         setAuthUser(res.data.user.userId);
+        
       } catch (err) {
-        console.error("Error loading messages:", err);
+        console.error("Error loading conversation data:", err);
+        setConversationData(null);
       }
     };
 
+    loadConversationAndMessages();
+
     if (conversationId) {
-      loadMessages();
       socketRef.current?.emit("join_room", conversationId);
     }
 
@@ -125,7 +148,24 @@ export const ConversationDetail: React.FC = () => {
         socketRef.current?.emit("leave_room", conversationId);
       }
     };
-  }, [conversationId, conversations]);
+  }, [conversationId, loadConversations]);
+
+  // Update conversation data when conversations list changes
+  useEffect(() => {
+    if (conversationId && conversations.length > 0) {
+      const conv = conversations.find((c) => c._id === conversationId);
+      if (conv) {
+        setConversationData({
+          _id: conv._id,
+          name: conv.name || 'Unknown',
+          type: conv.type,
+          isOnline: false // You can add online status logic later
+        });
+      } else {
+        setConversationData(null);
+      }
+    }
+  }, [conversations, conversationId]);
 
   const sendMessage = () => {
     if (message.trim() && socketRef.current && conversationId) {

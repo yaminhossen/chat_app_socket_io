@@ -80,9 +80,10 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     try {
       const response = await axios.post(`${BACKEND}/create/room`, {
         name: groupName,
-        user_id: '68cdaf456654b2a6e948dfca', // Current user will be added by backend
-        members: selectedUserIds, // Current user will be added by backend
+        members: selectedUserIds,
         type: "group",
+      }, {
+        withCredentials: true, // Important for authentication
       });
 
       onGroupCreated(response.data);
