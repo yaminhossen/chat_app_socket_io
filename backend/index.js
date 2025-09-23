@@ -434,9 +434,30 @@ app.get("/auth/me", authenticateToken, async (req, res) => {
   }
 });
 
+// Get online users
+app.get("/users/online", authenticateToken, (req, res) => {
+  const onlineUserIds = Array.from(onlineUsers.keys());
+  res.json({ onlineUsers: onlineUserIds });
+});
+
+// Store online users
+const onlineUsers = new Map(); // userId -> socketId mapping
+
 // socket.io logic
 io.on("connection", (socket) => {
   console.log("Socket connected", socket.id);
+
+  // User comes online
+  socket.on("user_online", (userId) => {
+    onlineUsers.set(userId, socket.id);
+    console.log(`User ${userId} is now online`);
+    
+    // Broadcast to all users that this user is online
+    socket.broadcast.emit("user_status_change", {
+      userId: userId,
+      isOnline: true
+    });
+  });
 
   // join room
   socket.on("join_room", (room) => {
@@ -487,6 +508,21 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("Socket disconnected", socket.id);
+    
+    // Find which user went offline
+    for (const [userId, socketId] of onlineUsers.entries()) {
+      if (socketId === socket.id) {
+        onlineUsers.delete(userId);
+        console.log(`User ${userId} went offline`);
+        
+        // Broadcast to all users that this user is offline
+        socket.broadcast.emit("user_status_change", {
+          userId: userId,
+          isOnline: false
+        });
+        break;
+      }
+    }
   });
 });
 

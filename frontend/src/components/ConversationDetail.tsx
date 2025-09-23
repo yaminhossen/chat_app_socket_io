@@ -56,6 +56,8 @@ export const ConversationDetail: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationData, setConversationData] = useState<Conversation | null>(null);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const typingTimeoutRef = useRef<number | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
   const [conversations, setConversations] = useState<ConversationFromAPI[]>([]);
@@ -90,10 +92,12 @@ export const ConversationDetail: React.FC = () => {
         setMessages((prev) =>
           prev.some((m) => m._id === msg._id) ? prev : [...prev, msg]
         );
+        console.log('Message received:', msg);
+        
       }
     };
 
-    const handleTyping = ({ sender, isTyping, room_id }) => {
+    const handleTyping = ({ sender, isTyping, room_id }: { sender: string; isTyping: boolean; room_id: string }) => {
       if (room_id === conversationId) {
         setTypingUsers((prev) => {
           if (isTyping) {
@@ -105,14 +109,45 @@ export const ConversationDetail: React.FC = () => {
       }
     };
 
+    const handleUserStatusChange = ({ userId, isOnline }: { userId: string; isOnline: boolean }) => {
+      setOnlineUsers((prev) => {
+        if (isOnline) {
+          return prev.includes(userId) ? prev : [...prev, userId];
+        } else {
+          return prev.filter((u) => u !== userId);
+        }
+      });
+    };
+
+    // Load initial online users
+    const loadOnlineUsers = async () => {
+      try {
+        const res = await axios.get(`${BACKEND}/users/online`, {
+          withCredentials: true
+        });
+        setOnlineUsers(res.data.onlineUsers || []);
+      } catch (err) {
+        console.error("Error loading online users:", err);
+      }
+    };
+
+    loadOnlineUsers();
+
+    // Announce user is online when socket connects
+    if (authUser) {
+      socket.emit("user_online", authUser);
+    }
+
     socket.on("receive_message", handleReceiveMessage);
     socket.on("typing", handleTyping);
+    socket.on("user_status_change", handleUserStatusChange);
 
     return () => {
       socket.off("receive_message", handleReceiveMessage);
       socket.off("typing", handleTyping);
+      socket.off("user_status_change", handleUserStatusChange);
     };
-  }, [conversationId]); // re-run only if room changes
+  }, [conversationId, authUser]); // re-run when room or user changes
 
   // Handle conversation + load history
   useEffect(() => {
@@ -180,13 +215,97 @@ export const ConversationDetail: React.FC = () => {
       // Send to server
       socketRef.current.emit("send_message", newMessage);
 
-      // Optimistic update (prevent duplicate on server echo)
-      // setMessages((prev) =>
-      //   prev.some((m) => m._id === newMessage._id) ? prev : [...prev, newMessage]
-      // );
+      // Stop typing indicator
+      handleTypingStop();
 
       setMessage("");
     }
+  };
+
+  const handleTypingStart = () => {
+    if (socketRef.current && conversationId && authUser) {
+      socketRef.current.emit("typing", {
+        room: conversationId,
+        sender: authUser,
+        isTyping: true
+      });
+    }
+  };
+
+  const handleTypingStop = () => {
+    if (socketRef.current && conversationId && authUser) {
+      socketRef.current.emit("typing", {
+        room: conversationId,
+        sender: authUser,
+        isTyping: false
+      });
+    }
+  };
+
+  const handleMessageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMessage(e.target.value);
+    
+    // Start typing indicator
+    handleTypingStart();
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      window.clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set timeout to stop typing indicator after 2 seconds of inactivity
+    typingTimeoutRef.current = window.setTimeout(() => {
+      handleTypingStop();
+    }, 2000);
+  };
+
+  // Format timestamp for better readability
+  const formatMessageTime = (timestamp: string) => {
+    const messageDate = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = Math.abs(now.getTime() - messageDate.getTime()) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      // Same day - show time only
+      return messageDate.toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    } else if (diffInHours < 24 * 7) {
+      // Within a week - show day and time
+      return messageDate.toLocaleDateString([], { 
+        weekday: 'short',
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    } else {
+      // Older - show date and time
+      return messageDate.toLocaleDateString([], { 
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    }
+  };
+
+  // Check if other user is online
+  const isOtherUserOnline = () => {
+    if (!conversationData || conversationData.type === "group") {
+      return false; // For groups, we'll show "group" status for now
+    }
+    
+    // For single conversations, find the other user ID
+    const conversation = conversations.find(c => c._id === conversationId);
+    if (conversation && conversation.participants) {
+      const otherUserId = conversation.participants.find((p: any) => p._id !== authUser)?._id;
+      return otherUserId && onlineUsers.includes(otherUserId);
+    }
+    
+    return false;
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -224,7 +343,12 @@ export const ConversationDetail: React.FC = () => {
               {conversationData.name}
             </div>
             <div className="text-gray-400 text-xs">
-              {conversationData.isOnline ? "Online" : "Offline"}
+              {conversationData.type === "group" 
+                ? "Group chat" 
+                : isOtherUserOnline() 
+                  ? "🟢 Online" 
+                  : "🔴 Offline"
+              }
             </div>
           </div>
         </div>
@@ -257,7 +381,7 @@ export const ConversationDetail: React.FC = () => {
                 {msg.content}
               </div>
               <div className="text-gray-400 text-xs mt-1">
-                {new Date(msg.timestamp).toLocaleTimeString()}
+                {formatMessageTime(msg.timestamp)}
               </div>
             </div>
           ))
@@ -274,14 +398,14 @@ export const ConversationDetail: React.FC = () => {
 
       {/* Message Input */}
       <div className="p-5 bg-gray-800 border-t border-gray-700">
-        <div className="bg-gray-700 rounded-lg flex items-center px-4 py-3 gap-3">
+        <div className="bg-gray-700 rounded-lg flex items-center px-4 h-14 gap-3">
           <input
             type="text"
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={handleMessageChange}
             onKeyPress={handleKeyPress}
             placeholder="Type your message..."
-            className="flex-1 bg-transparent border-none outline-none text-gray-200 text-sm placeholder-gray-400"
+            className="flex-1 h-full bg-transparent border-none outline-none text-gray-200 text-sm placeholder-gray-400"
           />
           <button
             onClick={sendMessage}
