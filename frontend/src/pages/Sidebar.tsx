@@ -97,19 +97,19 @@ export const Sidebar: React.FC = () => {
                   : "rounded-full bg-gray-600"
               }`}
             >
-              {conv.type === "group" ? "📱" : conv.name.charAt(0).toUpperCase()}
+              {conv.type === "group" ? "📱" : conv.otherUser?.name.charAt(0).toUpperCase()}
             </div>
 
             {/* Conversation Info */}
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-center">
                 <div className="text-white text-sm font-medium overflow-hidden text-ellipsis whitespace-nowrap">
-                  {conv.name}
+                  {conv.otherUser?.name || conv.name}
                 </div>
-                <div className="text-gray-400 text-xs">{conv.time}</div>
+                <div className="text-gray-400 text-xs">{conv.time || '10 min ago'}</div>
               </div>
               <div className="text-gray-400 text-xs overflow-hidden text-ellipsis whitespace-nowrap mt-0.5">
-                {conv.lastMessage}
+                {conv.lastMessage || "No messages yet"}
               </div>
             </div>
           </Link>
