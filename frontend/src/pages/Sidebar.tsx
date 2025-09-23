@@ -134,16 +134,26 @@ export const Sidebar: React.FC = () => {
         );
       });
     });
+
+    // Listen for new room/group creation
+    socket.on("room_created", (data: { room: any; participant_id: string }) => {
+      console.log("New room created:", data);
+      
+      // Refresh conversations to include the new room
+      // The backend /rooms endpoint will only return rooms the user has access to
+      loadConversations();
+    });
     
     return () => {
       socket.off("conversation_updated");
+      socket.off("room_created");
       // Optionally disconnect socket when component unmounts
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
       }
     };
-  }, []); // Empty dependency array - runs only once
+  }, [loadConversations]); // Include loadConversations dependency
 
   // Separate useEffect to join rooms when conversations change
   useEffect(() => {

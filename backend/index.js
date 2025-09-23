@@ -273,6 +273,24 @@ app.post("/create/room", authenticateToken, async (req, res) => {
       await GroupUser.insertMany(groupUsers);
     }
 
+    // Emit socket event to notify all participants about the new room
+    const roomData = await Room.findById(room._id)
+      .populate("user_a", "name email")
+      .populate("user_b", "name email");
+    
+    // Get all participants for this room
+    const participants = await GroupUser.find({ room_id: room._id }).populate("user_id", "_id");
+    
+    // Emit to each participant
+    participants.forEach(participant => {
+      if (participant.user_id && participant.user_id._id) {
+        io.emit("room_created", {
+          room: roomData,
+          participant_id: participant.user_id._id.toString()
+        });
+      }
+    });
+
     return res.status(201).json(room);
   } catch (err) {
     console.error("Error creating room:", err);
