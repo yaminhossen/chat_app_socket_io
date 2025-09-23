@@ -42,19 +42,21 @@ export const ConversationDetail: React.FC = () => {
   const [message, setMessage] = useState("");
   const [authUser, setAuthUser] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [conversationData, setConversationData] = useState<Conversation | null>(null);
+  const [conversationData, setConversationData] = useState<Conversation | null>(
+    null
+  );
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const socketRef = useRef<Socket | null>(null);
-
+   
   const [conversations, setConversations] = useState([]);
 
-  // Load conversation list
   const loadConversations = React.useCallback(async () => {
     try {
       const res = await axios.get(`${BACKEND}/rooms`);
       setConversations(res.data);
     } catch (err) {
       console.log(err);
+      
       window.location.href = "/login";
     }
   }, []);
@@ -63,23 +65,32 @@ export const ConversationDetail: React.FC = () => {
     loadConversations();
   }, []);
 
-  // Setup socket connection ONCE
   useEffect(() => {
+    // Find conversation data
+    const conv = conversations.find((c) => c._id === conversationId);
+    setConversationData(conv || null);
+
+    // Initialize socket connection
     if (!socketRef.current) {
       socketRef.current = io(BACKEND);
     }
 
     const socket = socketRef.current;
 
-    const handleReceiveMessage = (msg: Message) => {
-      if (msg.room_id === conversationId) {
-        setMessages((prev) =>
-          prev.some((m) => m._id === msg._id) ? prev : [...prev, msg]
-        );
-      }
-    };
+    // Join the conversation room
+    if (conversationId) {
+      socket.emit("join_room", conversationId);
+    }
 
-    const handleTyping = ({ sender, isTyping, room_id }) => {
+    // Listen for messages
+    socket.on("receive_message", (msg: Message) => {
+      if (msg.room_id === conversationId) {
+        setMessages((prev) => [...prev, msg]);
+      }
+    });
+
+    // Listen for typing events
+    socket.on("typing", ({ sender, isTyping, room_id }) => {
       if (room_id === conversationId) {
         setTypingUsers((prev) => {
           if (isTyping) {
@@ -89,25 +100,14 @@ export const ConversationDetail: React.FC = () => {
           }
         });
       }
-    };
+    });
 
-    socket.on("receive_message", handleReceiveMessage);
-    socket.on("typing", handleTyping);
-
-    return () => {
-      socket.off("receive_message", handleReceiveMessage);
-      socket.off("typing", handleTyping);
-    };
-  }, [conversationId]); // re-run only if room changes
-
-  // Handle conversation + load history
-  useEffect(() => {
-    const conv = conversations.find((c) => c._id === conversationId);
-    setConversationData(conv || null);
-
+    // Load message history
     const loadMessages = async () => {
       try {
-        const res = await axios.get<MessagesResponse>(`${BACKEND}/messages/${conversationId}`);
+        const res = await axios.get<MessagesResponse>(
+          `${BACKEND}/messages/${conversationId}`
+        );
         setMessages(res.data.messages);
         setAuthUser(res.data.user.userId);
       } catch (err) {
@@ -117,12 +117,11 @@ export const ConversationDetail: React.FC = () => {
 
     if (conversationId) {
       loadMessages();
-      socketRef.current?.emit("join_room", conversationId);
     }
 
     return () => {
-      if (conversationId) {
-        socketRef.current?.emit("leave_room", conversationId);
+      if (conversationId && socket) {
+        socket.emit("leave_room", conversationId);
       }
     };
   }, [conversationId, conversations]);
@@ -131,20 +130,16 @@ export const ConversationDetail: React.FC = () => {
     if (message.trim() && socketRef.current && conversationId) {
       const newMessage: Message = {
         _id: Date.now().toString(),
-        sender_id: authUser,
+        sender_id: authUser, // In real app, get from auth context
         content: message,
         timestamp: new Date().toISOString(),
         room_id: conversationId,
       };
 
-      // Send to server
       socketRef.current.emit("send_message", newMessage);
 
-      // Optimistic update (prevent duplicate on server echo)
-      // setMessages((prev) =>
-      //   prev.some((m) => m._id === newMessage._id) ? prev : [...prev, newMessage]
-      // );
-
+      // optimistically add to UI
+      setMessages((prev) => [...prev, newMessage]);
       setMessage("");
     }
   };
