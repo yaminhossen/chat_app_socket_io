@@ -100,46 +100,65 @@ app.get("/rooms", authenticateToken, async (req, res) => {
   let user_id = req.user.userId;
   console.log("user_id", user_id);
   try {
-  const userRooms = await GroupUser.find({ user_id: user_id }).select("room_id -_id");
-  const roomIds = userRooms.map((gr) => gr.room_id);
+    const userRooms = await GroupUser.find({ user_id: user_id }).select("room_id -_id");
+    const roomIds = userRooms.map((gr) => gr.room_id);
 
-  let rooms = await Room.find({ _id: { $in: roomIds } })
-    .populate("user_a", "name email") // populate only required fields
-    .populate("user_b", "name email");
+    let rooms = await Room.find({ _id: { $in: roomIds } })
+      .populate("user_a", "name email") // populate only required fields
+      .populate("user_b", "name email");
 
-  // Transform rooms for frontend
-  const result = rooms.map((room) => {
-    if (room.type === "single") {
-      let otherUser;
+    // Get last messages for each room
+    const roomsWithMessages = await Promise.all(
+      rooms.map(async (room) => {
+        // Get the last message for this room
+        const lastMessage = await Message.findOne({ room_id: room._id })
+          .sort({ createdAt: -1 })
+          .populate("sender_id", "name");
 
-      if (room.user_a && room.user_a._id.toString() === user_id.toString()) {
-        otherUser = room.user_b;
-      } else if (room.user_b && room.user_b._id.toString() === user_id.toString()) {
-        otherUser = room.user_a;
-      }
+        let transformedRoom;
+        if (room.type === "single") {
+          let otherUser;
+          if (room.user_a && room.user_a._id.toString() === user_id.toString()) {
+            otherUser = room.user_b;
+          } else if (room.user_b && room.user_b._id.toString() === user_id.toString()) {
+            otherUser = room.user_a;
+          }
 
-      return {
-        _id: room._id,
-        name: room.name,
-        type: room.type,
-        otherUser, // 👈 this will contain the other user object
-      };
-    }
+          transformedRoom = {
+            _id: room._id,
+            name: room.name,
+            type: room.type,
+            otherUser, // 👈 this will contain the other user object
+            lastMessage: lastMessage ? lastMessage.content : "No messages yet",
+            lastMessageTime: lastMessage ? lastMessage.createdAt : room.createdAt,
+            lastMessageSender: lastMessage ? lastMessage.sender_id?.name : null,
+          };
+        } else {
+          // group room
+          transformedRoom = {
+            _id: room._id,
+            name: room.name,
+            type: room.type,
+            lastMessage: lastMessage ? lastMessage.content : "No messages yet",
+            lastMessageTime: lastMessage ? lastMessage.createdAt : room.createdAt,
+            lastMessageSender: lastMessage ? lastMessage.sender_id?.name : null,
+          };
+        }
 
-    // group room: just return as-is
-    return {
-      _id: room._id,
-      name: room.name,
-      type: room.type,
-    };
-  });
+        return transformedRoom;
+      })
+    );
 
-  return res.json(result);
-} catch (err) {
-  console.error(err);
-  return res.status(500).json({ error: "Server error" });
-}
+    // Sort rooms by last message time (most recent first)
+    const sortedRooms = roomsWithMessages.sort((a, b) => 
+      new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
+    );
 
+    return res.json(sortedRooms);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
 });
 // just sent the authenticate user data in frontend
 app.get("/me", authenticateToken, (req, res) => {
@@ -430,6 +449,14 @@ io.on("connection", (socket) => {
 
       // emit to everyone in the room
       io.to(data.room_id).emit("receive_message", message);
+      
+      // Emit conversation update to all users in this room to update sidebar
+      io.to(data.room_id).emit("conversation_updated", {
+        roomId: data.room_id,
+        lastMessage: data.content,
+        lastMessageTime: message.createdAt,
+        lastMessageSender: data.sender_name || "Unknown"
+      });
     } catch (err) {
       console.error("save msg error", err);
     }
