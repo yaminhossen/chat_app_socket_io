@@ -94,16 +94,33 @@ app.get("/users", async (req, res) => {
   }
 });
 
+// // REST endpoint to fetch all rooms
+// app.get("/rooms/previous", authenticateToken, async (req, res) => {
+//   console.log("User in /rooms:", req.user);
+//   let user_id = req.user.userId;
+//   console.log("user_id", user_id);
+//   try {
+//     const userRooms = await GroupUser.find({ user_id: user_id }).select("room_id -_id");
+//     const roomIds = userRooms.map((gr) => gr.room_id);
+//     const rooms = await Room.find({ _id: { $in: roomIds } });
+//     return res.json(rooms);  
+//     // const rooms = await Room.find();
+//     // return res.json(rooms);
+//   } catch (err) {
+//     return res.status(500).json({ error: "Server error" });
+//   }
+// });
+
 // REST endpoint to fetch all rooms
 app.get("/rooms", authenticateToken, async (req, res) => {
   console.log("User in /rooms:", req.user);
   let user_id = req.user.userId;
   console.log("user_id", user_id);
   try {
-    const userRooms = await GroupUser.find({ user_id: user_id }).select("room_id -_id");
+    const userRooms = await Room.find({ user_id: user_id }).select("room_id -_id");
     const roomIds = userRooms.map((gr) => gr.room_id);
     const rooms = await Room.find({ _id: { $in: roomIds } });
-    return res.json(rooms);  
+    return res.json(rooms); 
     // const rooms = await Room.find();
     // return res.json(rooms);
   } catch (err) {

@@ -9,6 +9,17 @@ export const Sidebar: React.FC = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
+  
+  const [conversations, setConversations] = useState([]);
+
+  const loadConversations = React.useCallback(async () => {
+    try {
+      const res = await axios.get(`${BACKEND}/rooms`);
+      setConversations(res.data);
+    } catch (err) {
+      window.location.href = "/login";
+    }
+  }, []);
 
   const handleGroupCreated = (group: {
     _id: string;
@@ -28,22 +39,12 @@ export const Sidebar: React.FC = () => {
     type: string;
     createdAt: string;
   }) => {
-    console.log("Room created:", room);
+    console.log("Room created:------------------", room);
     // Reload conversations to show the new room
     loadConversations();
   };
 
  
-  const [conversations, setConversations] = useState([]);
-
-  const loadConversations = React.useCallback(async () => {
-    try {
-      const res = await axios.get(`${BACKEND}/rooms`);
-      setConversations(res.data);
-    } catch (err) {
-      window.location.href = "/login";
-    }
-  }, []);
 
   useEffect(() => {
     loadConversations();
