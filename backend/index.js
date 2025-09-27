@@ -77,7 +77,19 @@ app.get("/messages/:room", authenticateToken, async (req, res) => {
     const messages = await Message.find({ room_id: room })
       .sort({ createdAt: 1 })
       .limit(200);
-    return res.json({ user: user, messages: messages });
+    
+    // Transform messages to match frontend expectations
+    const transformedMessages = messages.map(msg => ({
+      _id: msg._id,
+      sender_id: msg.sender_id,
+      receiver_id: msg.receiver_id,
+      content: msg.content,
+      timestamp: msg.createdAt, // Map createdAt to timestamp
+      room_id: msg.room_id,
+      type: msg.type
+    }));
+    
+    return res.json({ user: user, messages: transformedMessages });
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
   }
@@ -486,8 +498,19 @@ io.on("connection", (socket) => {
       });
       await message.save();
 
+      // Transform message to match frontend expectations before emitting
+      const transformedMessage = {
+        _id: message._id,
+        sender_id: message.sender_id,
+        receiver_id: message.receiver_id,
+        content: message.content,
+        timestamp: message.createdAt, // Map createdAt to timestamp
+        room_id: message.room_id,
+        type: message.type
+      };
+
       // emit to everyone in the room
-      io.to(data.room_id).emit("receive_message", message);
+      io.to(data.room_id).emit("receive_message", transformedMessage);
       
       // Emit conversation update to all users in this room to update sidebar
       io.to(data.room_id).emit("conversation_updated", {

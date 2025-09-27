@@ -31,6 +31,7 @@ export const Sidebar: React.FC = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const socketRef = useRef<Socket | null>(null);
 
   const handleGroupCreated = (group: {
@@ -59,7 +60,7 @@ export const Sidebar: React.FC = () => {
  
   // Helper function to format time ago
   const formatTimeAgo = (timestamp: string | Date) => {
-    const now = new Date();
+    const now = currentTime; // Use currentTime state instead of new Date()
     const messageTime = new Date(timestamp);
     const diffInMinutes = Math.floor((now.getTime() - messageTime.getTime()) / (1000 * 60));
     
@@ -77,6 +78,15 @@ export const Sidebar: React.FC = () => {
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const loadingRef = useRef(false);
+
+  // Update current time every minute to refresh "time ago" display
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(timer);
+  }, []);
 
   const loadConversations = React.useCallback(async () => {
     if (loadingRef.current) return; // Prevent multiple simultaneous calls

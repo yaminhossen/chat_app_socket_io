@@ -31,6 +31,7 @@ interface MessagesResponse {
 interface Conversation {
   _id: string;
   name: string;
+  otherUser: any[];
   type: "single" | "group";
   isOnline: boolean;
 }
@@ -39,6 +40,7 @@ interface Conversation {
 interface ConversationFromAPI {
   _id: string;
   name?: string;
+  otherUser?: string;
   type: "single" | "group";
   participants?: any[];
   members?: any[];
@@ -189,10 +191,13 @@ export const ConversationDetail: React.FC = () => {
   useEffect(() => {
     if (conversationId && conversations.length > 0) {
       const conv = conversations.find((c) => c._id === conversationId);
+      console.log('conv found for conversationId', conv);
+      
       if (conv) {
         setConversationData({
           _id: conv._id,
           name: conv.name || 'Unknown',
+          otherUser: conv.otherUser || 'Unknown',
           type: conv.type,
           isOnline: false // You can add online status logic later
         });
@@ -259,36 +264,87 @@ export const ConversationDetail: React.FC = () => {
     }, 2000);
   };
 
-  // Format timestamp for better readability
-  const formatMessageTime = (timestamp: string) => {
-    const messageDate = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = Math.abs(now.getTime() - messageDate.getTime()) / (1000 * 60 * 60);
+  // Get date string for grouping messages (YYYY-MM-DD format)
+  const getDateString = (timestamp: string): string => {
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return "invalid";
+    return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+  };
+
+  // Format date header for display
+  const formatDateHeader = (dateString: string): string => {
+    if (dateString === "invalid") return "Invalid Date";
     
-    if (diffInHours < 24) {
-      // Same day - show time only
+    const date = new Date(dateString + 'T00:00:00');
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    
+    // Reset time parts for comparison
+    today.setHours(0, 0, 0, 0);
+    yesterday.setHours(0, 0, 0, 0);
+    date.setHours(0, 0, 0, 0);
+    
+    if (date.getTime() === today.getTime()) {
+      return "Today";
+    } else if (date.getTime() === yesterday.getTime()) {
+      return "Yesterday";
+    } else {
+      return date.toLocaleDateString([], {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+  };
+
+  // Group messages by date
+  const groupMessagesByDate = (messages: Message[]) => {
+    const groups: { [key: string]: Message[] } = {};
+    
+    messages.forEach(message => {
+      const dateKey = getDateString(message.timestamp);
+      if (!groups[dateKey]) {
+        groups[dateKey] = [];
+      }
+      groups[dateKey].push(message);
+    });
+    
+    // Convert to array and sort by date
+    return Object.keys(groups)
+      .sort() // Sorts in YYYY-MM-DD format naturally
+      .map(dateKey => ({
+        date: dateKey,
+        dateHeader: formatDateHeader(dateKey),
+        messages: groups[dateKey]
+      }));
+  };
+
+  // Format timestamp for message time (only time, since date is shown in header)
+  const formatMessageTime = (timestamp: string) => {
+    if (!timestamp) {
+      return "Invalid time";
+    }
+    
+    const messageDate = new Date(timestamp);
+    
+    // Check if date is valid
+    if (isNaN(messageDate.getTime())) {
+      console.error("Invalid timestamp:", timestamp);
+      return "Invalid time";
+    }
+    
+    try {
+      // Always show just the time since date is shown in the header
       return messageDate.toLocaleTimeString([], { 
         hour: '2-digit', 
         minute: '2-digit',
         hour12: true 
       });
-    } else if (diffInHours < 24 * 7) {
-      // Within a week - show day and time
-      return messageDate.toLocaleDateString([], { 
-        weekday: 'short',
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: true 
-      });
-    } else {
-      // Older - show date and time
-      return messageDate.toLocaleDateString([], { 
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: true 
-      });
+    } catch (error) {
+      console.error("Error formatting time:", error);
+      return "Invalid time";
     }
   };
 
@@ -321,6 +377,7 @@ export const ConversationDetail: React.FC = () => {
       </div>
     );
   }
+console.log('conversationData:', conversationData);
 
   return (
     <div className="flex-1 flex flex-col bg-gray-800">
@@ -340,7 +397,7 @@ export const ConversationDetail: React.FC = () => {
           </div>
           <div>
             <div className="text-white text-base font-semibold">
-              {conversationData.name}
+              {conversationData.otherUser?.name}
             </div>
             <div className="text-gray-400 text-xs">
               {conversationData.type === "group" 
@@ -364,25 +421,37 @@ export const ConversationDetail: React.FC = () => {
             No messages yet. Start the conversation!
           </div>
         ) : (
-          messages.map((msg) => (
-            <div
-              key={msg._id}
-              className={`mb-4 ${
-                msg.sender_id === authUser ? "text-right" : "text-left"
-              }`}
-            >
-              <div
-                className={`inline-block px-4 py-2 rounded-lg text-sm max-w-xs ${
-                  msg.sender_id === authUser
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-700 text-gray-200"
-                }`}
-              >
-                {msg.content}
+          groupMessagesByDate(messages).map((dateGroup) => (
+            <div key={dateGroup.date}>
+              {/* Date Header */}
+              <div className="flex justify-center my-4">
+                <div className="bg-gray-700 px-3 py-1 rounded-lg text-xs text-gray-300">
+                  {dateGroup.dateHeader}
+                </div>
               </div>
-              <div className="text-gray-400 text-xs mt-1">
-                {formatMessageTime(msg.timestamp)}
-              </div>
+              
+              {/* Messages for this date */}
+              {dateGroup.messages.map((msg) => (
+                <div
+                  key={msg._id}
+                  className={`mb-4 ${
+                    msg.sender_id === authUser ? "text-right" : "text-left"
+                  }`}
+                >
+                  <div
+                    className={`inline-block px-4 py-2 rounded-lg text-sm max-w-xs ${
+                      msg.sender_id === authUser
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-700 text-gray-200"
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
+                  <div className="text-gray-400 text-xs mt-1">
+                    {formatMessageTime(msg.timestamp)}
+                  </div>
+                </div>
+              ))}
             </div>
           ))
         )}
