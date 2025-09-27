@@ -481,6 +481,10 @@ io.on("connection", (socket) => {
   socket.on("send_message", async (data) => {
     let user_id = data.sender_id;
     console.log("send_message", user_id, data);
+    console.log("Frontend timestamp:", data.timestamp);
+    // console.log("Server Date.now():", new Date().toISOString());
+    // console.log("Parsed frontend timestamp:", new Date(data.timestamp).toISOString());
+    
     const findroom = await Room.findOne({ _id: data.room_id });
     let receiver_id;
     if(user_id === findroom.user_a){
@@ -495,8 +499,11 @@ io.on("connection", (socket) => {
         receiver_id: receiver_id,
         content: data.content,
         type: findroom.type,
+        createdAt: data.timestamp, // Use timestamp from frontend
       });
       await message.save();
+      
+      // console.log("Saved message createdAt:", message.createdAt.toISOString());
 
       // Get sender's name for conversation update
       const sender = await User.findById(user_id).select("name");

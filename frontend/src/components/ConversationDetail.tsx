@@ -27,7 +27,6 @@ interface MessagesResponse {
   messages: Message[];
 }
 
-
 interface Conversation {
   _id: string;
   name: string;
@@ -49,14 +48,14 @@ interface ConversationFromAPI {
   lastMessageSender?: string;
 }
 
-
-
 export const ConversationDetail: React.FC = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
   const [message, setMessage] = useState("");
   const [authUser, setAuthUser] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [conversationData, setConversationData] = useState<Conversation | null>(null);
+  const [conversationData, setConversationData] = useState<Conversation | null>(
+    null
+  );
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const typingTimeoutRef = useRef<number | null>(null);
@@ -68,7 +67,7 @@ export const ConversationDetail: React.FC = () => {
   const loadConversations = React.useCallback(async () => {
     try {
       const res = await axios.get(`${BACKEND}/rooms`, {
-        withCredentials: true
+        withCredentials: true,
       });
       setConversations(res.data);
     } catch (err) {
@@ -94,12 +93,19 @@ export const ConversationDetail: React.FC = () => {
         setMessages((prev) =>
           prev.some((m) => m._id === msg._id) ? prev : [...prev, msg]
         );
-        console.log('Message received:', msg);
-        
+        console.log("Message received:", msg);
       }
     };
 
-    const handleTyping = ({ sender, isTyping, room_id }: { sender: string; isTyping: boolean; room_id: string }) => {
+    const handleTyping = ({
+      sender,
+      isTyping,
+      room_id,
+    }: {
+      sender: string;
+      isTyping: boolean;
+      room_id: string;
+    }) => {
       if (room_id === conversationId) {
         setTypingUsers((prev) => {
           if (isTyping) {
@@ -111,7 +117,13 @@ export const ConversationDetail: React.FC = () => {
       }
     };
 
-    const handleUserStatusChange = ({ userId, isOnline }: { userId: string; isOnline: boolean }) => {
+    const handleUserStatusChange = ({
+      userId,
+      isOnline,
+    }: {
+      userId: string;
+      isOnline: boolean;
+    }) => {
       setOnlineUsers((prev) => {
         if (isOnline) {
           return prev.includes(userId) ? prev : [...prev, userId];
@@ -125,7 +137,7 @@ export const ConversationDetail: React.FC = () => {
     const loadOnlineUsers = async () => {
       try {
         const res = await axios.get(`${BACKEND}/users/online`, {
-          withCredentials: true
+          withCredentials: true,
         });
         setOnlineUsers(res.data.onlineUsers || []);
       } catch (err) {
@@ -155,19 +167,21 @@ export const ConversationDetail: React.FC = () => {
   useEffect(() => {
     const loadConversationAndMessages = async () => {
       if (!conversationId) return;
-      
+
       try {
         // Always refresh conversations list when switching to a new conversation
         // This ensures we have the latest data including newly created rooms
         await loadConversations();
-        
+
         // Load messages for this conversation
-        const res = await axios.get<MessagesResponse>(`${BACKEND}/messages/${conversationId}`, {
-          withCredentials: true
-        });
+        const res = await axios.get<MessagesResponse>(
+          `${BACKEND}/messages/${conversationId}`,
+          {
+            withCredentials: true,
+          }
+        );
         setMessages(res.data.messages);
         setAuthUser(res.data.user.userId);
-        
       } catch (err) {
         console.error("Error loading conversation data:", err);
         setConversationData(null);
@@ -191,15 +205,15 @@ export const ConversationDetail: React.FC = () => {
   useEffect(() => {
     if (conversationId && conversations.length > 0) {
       const conv = conversations.find((c) => c._id === conversationId);
-      console.log('conv found for conversationId', conv);
-      
+      console.log("conv found for conversationId", conv);
+
       if (conv) {
         setConversationData({
           _id: conv._id,
-          name: conv.name || 'Unknown',
-          otherUser: conv.otherUser || 'Unknown',
+          name: conv.name || "Unknown",
+          otherUser: conv.otherUser || "Unknown",
           type: conv.type,
-          isOnline: false // You can add online status logic later
+          isOnline: false, // You can add online status logic later
         });
       } else {
         setConversationData(null);
@@ -208,12 +222,30 @@ export const ConversationDetail: React.FC = () => {
   }, [conversations, conversationId]);
 
   const sendMessage = () => {
+    const now = new Date();
+const formatter = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Asia/Dhaka',
+  hour12: false,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
+const parts = formatter.formatToParts(now);
+const isoDhaka = `${parts[0].value}-${parts[2].value}-${parts[4].value}T${parts[6].value}:${parts[8].value}:${parts[10].value}.000Z`;
+
+console.log(isoDhaka);
+// Example: "2025-09-28T01:05:51.000Z"
+
     if (message.trim() && socketRef.current && conversationId) {
       const newMessage: Message = {
         _id: Date.now().toString(),
         sender_id: authUser,
         content: message,
-        timestamp: new Date().toISOString(),
+        timestamp: isoDhaka,
         room_id: conversationId,
       };
 
@@ -227,12 +259,13 @@ export const ConversationDetail: React.FC = () => {
     }
   };
 
+
   const handleTypingStart = () => {
     if (socketRef.current && conversationId && authUser) {
       socketRef.current.emit("typing", {
         room: conversationId,
         sender: authUser,
-        isTyping: true
+        isTyping: true,
       });
     }
   };
@@ -242,22 +275,22 @@ export const ConversationDetail: React.FC = () => {
       socketRef.current.emit("typing", {
         room: conversationId,
         sender: authUser,
-        isTyping: false
+        isTyping: false,
       });
     }
   };
 
   const handleMessageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setMessage(e.target.value);
-    
+
     // Start typing indicator
     handleTypingStart();
-    
+
     // Clear existing timeout
     if (typingTimeoutRef.current) {
       window.clearTimeout(typingTimeoutRef.current);
     }
-    
+
     // Set timeout to stop typing indicator after 2 seconds of inactivity
     typingTimeoutRef.current = window.setTimeout(() => {
       handleTypingStop();
@@ -268,33 +301,33 @@ export const ConversationDetail: React.FC = () => {
   const getDateString = (timestamp: string): string => {
     const date = new Date(timestamp);
     if (isNaN(date.getTime())) return "invalid";
-    return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+    return date.toISOString().split("T")[0]; // Returns YYYY-MM-DD
   };
 
   // Format date header for display
   const formatDateHeader = (dateString: string): string => {
     if (dateString === "invalid") return "Invalid Date";
-    
-    const date = new Date(dateString + 'T00:00:00');
+
+    const date = new Date(dateString + "T00:00:00");
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
-    
+
     // Reset time parts for comparison
     today.setHours(0, 0, 0, 0);
     yesterday.setHours(0, 0, 0, 0);
     date.setHours(0, 0, 0, 0);
-    
+
     if (date.getTime() === today.getTime()) {
       return "Today";
     } else if (date.getTime() === yesterday.getTime()) {
       return "Yesterday";
     } else {
       return date.toLocaleDateString([], {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       });
     }
   };
@@ -302,22 +335,22 @@ export const ConversationDetail: React.FC = () => {
   // Group messages by date
   const groupMessagesByDate = (messages: Message[]) => {
     const groups: { [key: string]: Message[] } = {};
-    
-    messages.forEach(message => {
+
+    messages.forEach((message) => {
       const dateKey = getDateString(message.timestamp);
       if (!groups[dateKey]) {
         groups[dateKey] = [];
       }
       groups[dateKey].push(message);
     });
-    
+
     // Convert to array and sort by date
     return Object.keys(groups)
       .sort() // Sorts in YYYY-MM-DD format naturally
-      .map(dateKey => ({
+      .map((dateKey) => ({
         date: dateKey,
         dateHeader: formatDateHeader(dateKey),
-        messages: groups[dateKey]
+        messages: groups[dateKey],
       }));
   };
 
@@ -326,21 +359,21 @@ export const ConversationDetail: React.FC = () => {
     if (!timestamp) {
       return "Invalid time";
     }
-    
+
     const messageDate = new Date(timestamp);
-    
+
     // Check if date is valid
     if (isNaN(messageDate.getTime())) {
       console.error("Invalid timestamp:", timestamp);
       return "Invalid time";
     }
-    
+
     try {
       // Always show just the time since date is shown in the header
-      return messageDate.toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: true 
+      return messageDate.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
       });
     } catch (error) {
       console.error("Error formatting time:", error);
@@ -353,14 +386,16 @@ export const ConversationDetail: React.FC = () => {
     if (!conversationData || conversationData.type === "group") {
       return false; // For groups, we'll show "group" status for now
     }
-    
+
     // For single conversations, find the other user ID
-    const conversation = conversations.find(c => c._id === conversationId);
+    const conversation = conversations.find((c) => c._id === conversationId);
     if (conversation && conversation.participants) {
-      const otherUserId = conversation.participants.find((p: any) => p._id !== authUser)?._id;
+      const otherUserId = conversation.participants.find(
+        (p: any) => p._id !== authUser
+      )?._id;
       return otherUserId && onlineUsers.includes(otherUserId);
     }
-    
+
     return false;
   };
 
@@ -377,7 +412,7 @@ export const ConversationDetail: React.FC = () => {
       </div>
     );
   }
-console.log('conversationData:', conversationData);
+  console.log("conversationData:", conversationData);
 
   return (
     <div className="flex-1 flex flex-col bg-gray-800">
@@ -391,21 +426,28 @@ console.log('conversationData:', conversationData);
                 : "rounded-full bg-gray-600"
             }`}
           >
-            {conversationData.type === "group"
-              ? "📱"
-              : conversationData.name.charAt(0).toUpperCase()}
+            {conversationData.type === "group" ? (
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                <path d="M12 6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2m0 10c2.7 0 5.8 1.29 6 2H6c.23-.72 3.31-2 6-2m0-12C9.79 4 8 5.79 8 8s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                <circle cx="18" cy="8" r="2" />
+                <path d="M18 10c-1.1 0-2.17.35-3 .99.83.65 1.35 1.62 1.35 2.68V16h5v-2.33c0-1.06-1.79-2.67-3.35-2.67z" />
+                <circle cx="6" cy="8" r="2" />
+                <path d="M6 10c1.1 0 2.17.35 3 .99C8.17 11.64 7.65 12.61 7.65 13.67V16H2.65v-2.33C2.65 12.61 4.44 11 6 10z" />
+              </svg>
+            ) : (
+              conversationData.name.charAt(0).toUpperCase()
+            )}
           </div>
           <div>
             <div className="text-white text-base font-semibold">
               {conversationData.otherUser?.name}
             </div>
             <div className="text-gray-400 text-xs">
-              {conversationData.type === "group" 
-                ? "Group chat" 
-                : isOtherUserOnline() 
-                  ? "🟢 Online" 
-                  : "🔴 Offline"
-              }
+              {conversationData.type === "group"
+                ? "Group chat"
+                : isOtherUserOnline()
+                ? "🟢 Online"
+                : "🔴 Offline"}
             </div>
           </div>
         </div>
@@ -429,7 +471,7 @@ console.log('conversationData:', conversationData);
                   {dateGroup.dateHeader}
                 </div>
               </div>
-              
+
               {/* Messages for this date */}
               {dateGroup.messages.map((msg) => (
                 <div

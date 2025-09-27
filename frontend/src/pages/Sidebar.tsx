@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import { CreateGroupModal } from "../components/CreateGroupModal";
 import { CreateRoomModal } from "../components/CreateRoomModal";
+import logo from "../assets/logo.png";
 import axios from "axios";
 import { io, Socket } from "socket.io-client";
 const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
@@ -181,26 +182,43 @@ export const Sidebar: React.FC = () => {
     <div className="w-64 bg-gray-900 flex flex-col border border-gray-400">
       {/* Sidebar Header */}
       <div className="p-4 border-b border-gray-800 flex justify-between items-center">
-        <h3 className="m-0 text-white text-base font-semibold">
-          Conversations
+        <h3 className="m-0 text-blue-600 w-full text-base text-xl font-semibold">
+          AddaZone
+          {/* <img src={logo} style={{ width: "100px", height: "auto", color: "white" }} alt="AddaZone Logo" className="inline-block w-6 h-6 ml-1" /> */}
         </h3>
         <div className="flex gap-2 items-center">
           {/* Create Group Button */}
           <button
             onClick={() => setIsGroupModalOpen(true)}
-            className="w-8 h-8 p-4 bg-gray-700 border-none rounded text-white cursor-pointer  flex items-center justify-center hover:bg-gray-600 transition-colors font-bold"
+            className="w-8 h-8 p-1 bg-gray-700 border-none rounded text-white cursor-pointer flex items-center justify-center hover:bg-gray-600 transition-colors"
             title="Create Group"
           >
-            ++
+            <svg 
+              viewBox="0 0 24 24" 
+              fill="currentColor" 
+              className="w-5 h-5"
+            >
+              <path d="M12 6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2m0 10c2.7 0 5.8 1.29 6 2H6c.23-.72 3.31-2 6-2m0-12C9.79 4 8 5.79 8 8s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              <circle cx="18" cy="8" r="2"/>
+              <path d="M18 10c-1.1 0-2.17.35-3 .99.83.65 1.35 1.62 1.35 2.68V16h5v-2.33c0-1.06-1.79-2.67-3.35-2.67z"/>
+              <circle cx="6" cy="8" r="2"/>
+              <path d="M6 10c1.1 0 2.17.35 3 .99C8.17 11.64 7.65 12.61 7.65 13.67V16H2.65v-2.33C2.65 12.61 4.44 11 6 10z"/>
+            </svg>
           </button>
           <button
             onClick={() => setIsRoomModalOpen(true)}
-            className="w-8 h-8 p-4 bg-gray-700 border-none rounded text-white 
+            className="w-8 h-8 p-1 bg-gray-700 border-none rounded text-white 
              cursor-pointer flex items-center justify-center 
              hover:bg-gray-600 transition-colors"
             title="Create Room"
           >
-            +
+            <svg 
+              viewBox="0 0 24 24" 
+              fill="currentColor" 
+              className="w-5 h-5"
+            >
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
           </button>
         </div>
       </div>
@@ -223,7 +241,18 @@ export const Sidebar: React.FC = () => {
                   : "rounded-full bg-gray-600"
               }`}
             >
-              {conv.type === "group" ? "📱" : conv.otherUser?.name.charAt(0).toUpperCase()}
+              {/* {conv.type === "group" ? "📱" : conv.otherUser?.name.charAt(0).toUpperCase()} */}
+              {conv.type === "group" ? <svg 
+              viewBox="0 0 24 24" 
+              fill="currentColor" 
+              className="w-5 h-5"
+            >
+              <path d="M12 6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2m0 10c2.7 0 5.8 1.29 6 2H6c.23-.72 3.31-2 6-2m0-12C9.79 4 8 5.79 8 8s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              <circle cx="18" cy="8" r="2"/>
+              <path d="M18 10c-1.1 0-2.17.35-3 .99.83.65 1.35 1.62 1.35 2.68V16h5v-2.33c0-1.06-1.79-2.67-3.35-2.67z"/>
+              <circle cx="6" cy="8" r="2"/>
+              <path d="M6 10c1.1 0 2.17.35 3 .99C8.17 11.64 7.65 12.61 7.65 13.67V16H2.65v-2.33C2.65 12.61 4.44 11 6 10z"/>
+            </svg> : conv.otherUser?.name.charAt(0).toUpperCase()}
             </div>
 
             {/* Conversation Info */}
