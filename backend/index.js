@@ -498,6 +498,10 @@ io.on("connection", (socket) => {
       });
       await message.save();
 
+      // Get sender's name for conversation update
+      const sender = await User.findById(user_id).select("name");
+      const senderName = sender ? sender.name : "Unknown";
+
       // Transform message to match frontend expectations before emitting
       const transformedMessage = {
         _id: message._id,
@@ -517,7 +521,7 @@ io.on("connection", (socket) => {
         roomId: data.room_id,
         lastMessage: data.content,
         lastMessageTime: message.createdAt,
-        lastMessageSender: data.sender_name || "Unknown"
+        lastMessageSender: senderName // Use the looked-up name
       });
     } catch (err) {
       console.error("save msg error", err);
