@@ -94,6 +94,23 @@ app.get("/users", async (req, res) => {
   }
 });
 
+// // REST endpoint to fetch all rooms
+// app.get("/rooms/previous", authenticateToken, async (req, res) => {
+//   console.log("User in /rooms:", req.user);
+//   let user_id = req.user.userId;
+//   console.log("user_id", user_id);
+//   try {
+//     const userRooms = await GroupUser.find({ user_id: user_id }).select("room_id -_id");
+//     const roomIds = userRooms.map((gr) => gr.room_id);
+//     const rooms = await Room.find({ _id: { $in: roomIds } });
+//     return res.json(rooms);  
+//     // const rooms = await Room.find();
+//     // return res.json(rooms);
+//   } catch (err) {
+//     return res.status(500).json({ error: "Server error" });
+//   }
+// });
+
 // REST endpoint to fetch all rooms
 app.get("/rooms", authenticateToken, async (req, res) => {
   console.log("User in /rooms:", req.user);
@@ -102,6 +119,7 @@ app.get("/rooms", authenticateToken, async (req, res) => {
   try {
     const userRooms = await GroupUser.find({ user_id: user_id }).select("room_id -_id");
     const roomIds = userRooms.map((gr) => gr.room_id);
+<<<<<<< HEAD
 
     let rooms = await Room.find({ _id: { $in: roomIds } })
       .populate("user_a", "name email") // populate only required fields
@@ -155,6 +173,12 @@ app.get("/rooms", authenticateToken, async (req, res) => {
     );
 
     return res.json(sortedRooms);
+=======
+    const rooms = await Room.find({ _id: { $in: roomIds } });
+    return res.json(rooms); 
+    // const rooms = await Room.find();
+    // return res.json(rooms);
+>>>>>>> c96725e9a7fb74f48efc36e512081512aea0d7f6
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });

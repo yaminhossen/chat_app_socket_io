@@ -31,7 +31,6 @@ export const Sidebar: React.FC = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
-  const socketRef = useRef<Socket | null>(null);
 
   const handleGroupCreated = (group: {
     _id: string;
@@ -51,47 +50,20 @@ export const Sidebar: React.FC = () => {
     type: string;
     createdAt: string;
   }) => {
-    console.log("Room created:", room);
+    console.log("Room created:------------------", room);
     // Reload conversations to show the new room
     loadConversations();
   };
 
  
-  // Helper function to format time ago
-  const formatTimeAgo = (timestamp: string | Date) => {
-    const now = new Date();
-    const messageTime = new Date(timestamp);
-    const diffInMinutes = Math.floor((now.getTime() - messageTime.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return "Just now";
-    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
-    
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) return `${diffInDays}d ago`;
-    
-    return messageTime.toLocaleDateString();
-  };
-
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const loadingRef = useRef(false);
+  const [conversations, setConversations] = useState([]);
 
   const loadConversations = React.useCallback(async () => {
-    if (loadingRef.current) return; // Prevent multiple simultaneous calls
-    
-    loadingRef.current = true;
     try {
       const res = await axios.get(`${BACKEND}/rooms`);
-      console.log('Rooms loaded:', res.data);
-      
       setConversations(res.data);
     } catch (err) {
-      console.error("Error loading conversations:", err);
       window.location.href = "/login";
-    } finally {
-      loadingRef.current = false;
     }
   }, []);
 
