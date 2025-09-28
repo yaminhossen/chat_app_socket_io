@@ -361,6 +361,9 @@ console.log(isoDhaka);
     }
 
     const messageDate = new Date(timestamp);
+    console.log("Formatting timestamp:", messageDate);
+    console.log("Formatting timestamp:", timestamp);
+    
 
     // Check if date is valid
     if (isNaN(messageDate.getTime())) {
@@ -374,6 +377,8 @@ console.log(isoDhaka);
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
+        timeZone: 'UTC'
+        
       });
     } catch (error) {
       console.error("Error formatting time:", error);
@@ -491,6 +496,7 @@ console.log(isoDhaka);
                   </div>
                   <div className="text-gray-400 text-xs mt-1">
                     {formatMessageTime(msg.timestamp)}
+                    {/* {msg.timestamp} */}
                   </div>
                 </div>
               ))}

@@ -61,10 +61,30 @@ export const Sidebar: React.FC = () => {
  
   // Helper function to format time ago
   const formatTimeAgo = (timestamp: string | Date) => {
-    const now = currentTime; // Use currentTime state instead of new Date()
-    const messageTime = new Date(timestamp);
-    const diffInMinutes = Math.floor((now.getTime() - messageTime.getTime()) / (1000 * 60));
-    
+        const now = new Date();
+const formatter = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Asia/Dhaka',
+  hour12: false,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
+const parts = formatter.formatToParts(now);
+const isoDhaka = `${parts[0].value}-${parts[2].value}-${parts[4].value}T${parts[6].value}:${parts[8].value}:${parts[10].value}.000Z`;
+
+console.log(isoDhaka);
+    // const now = currentTime; // Use currentTime state instead of new Date()
+    // const messageTime = new Date(timestamp);
+    // const diffInMinutes = Math.floor((now.getTime() - messageTime.getTime()) / (1000 * 60));
+    // const diffInMinutes = Math.floor((isoDhaka - timestamp) / (1000 * 60));
+    const diffInMinutes = Math.floor((new Date(isoDhaka).getTime() - new Date(timestamp).getTime()) / (1000 * 60));
+    console.log("Formatting time ago:", {timestamp, now });
+
+
     if (diffInMinutes < 1) return "Just now";
     if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
     
