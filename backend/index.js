@@ -75,13 +75,16 @@ app.get("/messages/:room", authenticateToken, async (req, res) => {
   let user = req.user;
   try {
     const messages = await Message.find({ room_id: room })
+      .populate('sender_id', 'name email') // Populate sender information
       .sort({ createdAt: 1 })
       .limit(200);
     
     // Transform messages to match frontend expectations
     const transformedMessages = messages.map(msg => ({
       _id: msg._id,
-      sender_id: msg.sender_id,
+      sender_id: msg.sender_id._id,
+      sender_name: msg.sender_id.name, // Add sender name
+      sender_email: msg.sender_id.email, // Add sender email
       receiver_id: msg.receiver_id,
       content: msg.content,
       timestamp: msg.createdAt, // Map createdAt to timestamp
@@ -91,6 +94,7 @@ app.get("/messages/:room", authenticateToken, async (req, res) => {
     
     return res.json({ user: user, messages: transformedMessages });
   } catch (err) {
+    console.error("Error fetching messages:", err);
     return res.status(500).json({ error: "Server error" });
   }
 });
@@ -506,13 +510,15 @@ io.on("connection", (socket) => {
       // console.log("Saved message createdAt:", message.createdAt.toISOString());
 
       // Get sender's name for conversation update
-      const sender = await User.findById(user_id).select("name");
+      const sender = await User.findById(user_id).select("name email");
       const senderName = sender ? sender.name : "Unknown";
 
       // Transform message to match frontend expectations before emitting
       const transformedMessage = {
         _id: message._id,
         sender_id: message.sender_id,
+        sender_name: sender ? sender.name : "Unknown", // Add sender name
+        sender_email: sender ? sender.email : "", // Add sender email
         receiver_id: message.receiver_id,
         content: message.content,
         timestamp: message.createdAt, // Map createdAt to timestamp

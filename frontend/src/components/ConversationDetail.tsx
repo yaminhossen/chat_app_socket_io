@@ -9,6 +9,8 @@ const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 interface Message {
   _id: string;
   sender_id?: string;
+  sender_name?: string; // Add sender name
+  sender_email?: string; // Add sender email
   content: string;
   timestamp: string;
   room_id: string;
@@ -60,8 +62,19 @@ export const ConversationDetail: React.FC = () => {
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const typingTimeoutRef = useRef<number | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [conversations, setConversations] = useState<ConversationFromAPI[]>([]);
+
+  // Auto-scroll function
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Load conversation list
   const loadConversations = React.useCallback(async () => {
@@ -256,6 +269,9 @@ console.log(isoDhaka);
       handleTypingStop();
 
       setMessage("");
+      
+      // Auto-scroll to bottom after sending message
+      setTimeout(scrollToBottom, 100);
     }
   };
 
@@ -485,6 +501,13 @@ console.log(isoDhaka);
                     msg.sender_id === authUser ? "text-right" : "text-left"
                   }`}
                 >
+                  {/* Show sender name above message for group chats (except for own messages) */}
+                  {conversationData?.type === "group" && msg.sender_id !== authUser && (
+                    <div className="text-xs text-gray-400 mb-1 ml-1">
+                      {msg.sender_name || msg.sender_id}
+                    </div>
+                  )}
+                  
                   <div
                     className={`inline-block px-4 py-2 rounded-lg text-sm max-w-xs ${
                       msg.sender_id === authUser
@@ -511,6 +534,9 @@ console.log(isoDhaka);
             typing...
           </div>
         )}
+
+        {/* Invisible element to scroll to */}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Message Input */}
