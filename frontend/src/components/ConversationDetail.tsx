@@ -58,7 +58,7 @@ export const ConversationDetail: React.FC = () => {
   const [conversationData, setConversationData] = useState<Conversation | null>(
     null
   );
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [typingUsers, setTypingUsers] = useState<{ id: string; name: string }[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const typingTimeoutRef = useRef<number | null>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -112,19 +112,26 @@ export const ConversationDetail: React.FC = () => {
 
     const handleTyping = ({
       sender,
+      senderName,
       isTyping,
       room_id,
     }: {
       sender: string;
+      senderName: string;
       isTyping: boolean;
       room_id: string;
     }) => {
       if (room_id === conversationId) {
         setTypingUsers((prev) => {
           if (isTyping) {
-            return prev.includes(sender) ? prev : [...prev, sender];
+            // Check if user is already in typing list
+            const existingUser = prev.find((u) => u.id === sender);
+            if (existingUser) {
+              return prev;
+            }
+            return [...prev, { id: sender, name: senderName }];
           } else {
-            return prev.filter((u) => u !== sender);
+            return prev.filter((u) => u.id !== sender);
           }
         });
       }
@@ -530,8 +537,22 @@ console.log(isoDhaka);
         {/* Typing indicator */}
         {typingUsers.length > 0 && (
           <div className="text-gray-400 text-sm italic">
-            {typingUsers.join(", ")} {typingUsers.length === 1 ? "is" : "are"}{" "}
-            typing...
+            {conversationData?.type === "group" ? (
+              // For group chats, show names
+              <>
+                {typingUsers.map((user, index) => (
+                  <span key={user.id}>
+                    <span className="font-medium text-blue-400">{user.name}</span>
+                    {index < typingUsers.length - 1 && ", "}
+                  </span>
+                ))}
+                {" "}
+                {typingUsers.length === 1 ? "is" : "are"} typing...
+              </>
+            ) : (
+              // For single chats, just show "is typing..."
+              `${typingUsers[0].name} is typing...`
+            )}
           </div>
         )}
 

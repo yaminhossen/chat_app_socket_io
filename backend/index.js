@@ -542,8 +542,28 @@ io.on("connection", (socket) => {
   });
 
   // optional typing indicator
-  socket.on("typing", ({ room, sender, isTyping }) => {
-    socket.to(room).emit("typing", { sender, isTyping });
+  socket.on("typing", async ({ room, sender, isTyping }) => {
+    try {
+      // Get user information to send the name instead of just ID
+      const user = await User.findById(sender);
+      const senderName = user ? user.name : sender; // fallback to ID if user not found
+      
+      socket.to(room).emit("typing", { 
+        sender: sender,
+        senderName: senderName,
+        isTyping: isTyping,
+        room_id: room 
+      });
+    } catch (err) {
+      console.error("Error handling typing indicator:", err);
+      // Fallback to original behavior if error occurs
+      socket.to(room).emit("typing", { 
+        sender: sender, 
+        senderName: sender,
+        isTyping: isTyping,
+        room_id: room 
+      });
+    }
   });
 
   socket.on("disconnect", () => {
