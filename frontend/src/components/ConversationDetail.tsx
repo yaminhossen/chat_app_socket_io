@@ -470,9 +470,9 @@ console.log(isoDhaka);
             <div className="text-white text-base font-semibold">
               {conversationData.otherUser?.name}
             </div>
-            <div className="text-gray-400 text-xs">
+            <div className="text-gray-400 text-sm">
               {conversationData.type === "group"
-                ? "Group chat"
+                ? conversationData.name
                 : isOtherUserOnline()
                 ? "🟢 Online"
                 : "🔴 Offline"}
