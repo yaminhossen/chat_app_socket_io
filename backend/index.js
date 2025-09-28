@@ -75,10 +75,26 @@ app.get("/messages/:room", authenticateToken, async (req, res) => {
   let user = req.user;
   try {
     const messages = await Message.find({ room_id: room })
+      .populate('sender_id', 'name email') // Populate sender information
       .sort({ createdAt: 1 })
       .limit(200);
-    return res.json({ user: user, messages: messages });
+    
+    // Transform messages to match frontend expectations
+    const transformedMessages = messages.map(msg => ({
+      _id: msg._id,
+      sender_id: msg.sender_id._id,
+      sender_name: msg.sender_id.name, // Add sender name
+      sender_email: msg.sender_id.email, // Add sender email
+      receiver_id: msg.receiver_id,
+      content: msg.content,
+      timestamp: msg.createdAt, // Map createdAt to timestamp
+      room_id: msg.room_id,
+      type: msg.type
+    }));
+    
+    return res.json({ user: user, messages: transformedMessages });
   } catch (err) {
+    console.error("Error fetching messages:", err);
     return res.status(500).json({ error: "Server error" });
   }
 });
@@ -119,11 +135,61 @@ app.get("/rooms", authenticateToken, async (req, res) => {
   try {
     const userRooms = await GroupUser.find({ user_id: user_id }).select("room_id -_id");
     const roomIds = userRooms.map((gr) => gr.room_id);
-    const rooms = await Room.find({ _id: { $in: roomIds } });
-    return res.json(rooms); 
-    // const rooms = await Room.find();
-    // return res.json(rooms);
+
+    let rooms = await Room.find({ _id: { $in: roomIds } })
+      .populate("user_a", "name email") // populate only required fields
+      .populate("user_b", "name email");
+
+    // Get last messages for each room
+    const roomsWithMessages = await Promise.all(
+      rooms.map(async (room) => {
+        // Get the last message for this room
+        const lastMessage = await Message.findOne({ room_id: room._id })
+          .sort({ createdAt: -1 })
+          .populate("sender_id", "name");
+
+        let transformedRoom;
+        if (room.type === "single") {
+          let otherUser;
+          if (room.user_a && room.user_a._id.toString() === user_id.toString()) {
+            otherUser = room.user_b;
+          } else if (room.user_b && room.user_b._id.toString() === user_id.toString()) {
+            otherUser = room.user_a;
+          }
+
+          transformedRoom = {
+            _id: room._id,
+            name: room.name,
+            type: room.type,
+            otherUser, // 👈 this will contain the other user object
+            lastMessage: lastMessage ? lastMessage.content : "No messages yet",
+            lastMessageTime: lastMessage ? lastMessage.createdAt : room.createdAt,
+            lastMessageSender: lastMessage ? lastMessage.sender_id?.name : null,
+          };
+        } else {
+          // group room
+          transformedRoom = {
+            _id: room._id,
+            name: room.name,
+            type: room.type,
+            lastMessage: lastMessage ? lastMessage.content : "No messages yet",
+            lastMessageTime: lastMessage ? lastMessage.createdAt : room.createdAt,
+            lastMessageSender: lastMessage ? lastMessage.sender_id?.name : null,
+          };
+        }
+
+        return transformedRoom;
+      })
+    );
+
+    // Sort rooms by last message time (most recent first)
+    const sortedRooms = roomsWithMessages.sort((a, b) => 
+      new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
+    );
+
+    return res.json(sortedRooms);
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: "Server error" });
   }
 });
@@ -239,6 +305,24 @@ app.post("/create/room", authenticateToken, async (req, res) => {
       );
       await GroupUser.insertMany(groupUsers);
     }
+
+    // Emit socket event to notify all participants about the new room
+    const roomData = await Room.findById(room._id)
+      .populate("user_a", "name email")
+      .populate("user_b", "name email");
+    
+    // Get all participants for this room
+    const participants = await GroupUser.find({ room_id: room._id }).populate("user_id", "_id");
+    
+    // Emit to each participant
+    participants.forEach(participant => {
+      if (participant.user_id && participant.user_id._id) {
+        io.emit("room_created", {
+          room: roomData,
+          participant_id: participant.user_id._id.toString()
+        });
+      }
+    });
 
     return res.status(201).json(room);
   } catch (err) {
@@ -383,9 +467,30 @@ app.get("/auth/me", authenticateToken, async (req, res) => {
   }
 });
 
+// Get online users
+app.get("/users/online", authenticateToken, (req, res) => {
+  const onlineUserIds = Array.from(onlineUsers.keys());
+  res.json({ onlineUsers: onlineUserIds });
+});
+
+// Store online users
+const onlineUsers = new Map(); // userId -> socketId mapping
+
 // socket.io logic
 io.on("connection", (socket) => {
   console.log("Socket connected", socket.id);
+
+  // User comes online
+  socket.on("user_online", (userId) => {
+    onlineUsers.set(userId, socket.id);
+    console.log(`User ${userId} is now online`);
+    
+    // Broadcast to all users that this user is online
+    socket.broadcast.emit("user_status_change", {
+      userId: userId,
+      isOnline: true
+    });
+  });
 
   // join room
   socket.on("join_room", (room) => {
@@ -397,6 +502,10 @@ io.on("connection", (socket) => {
   socket.on("send_message", async (data) => {
     let user_id = data.sender_id;
     console.log("send_message", user_id, data);
+    console.log("Frontend timestamp:", data.timestamp);
+    // console.log("Server Date.now():", new Date().toISOString());
+    // console.log("Parsed frontend timestamp:", new Date(data.timestamp).toISOString());
+    
     const findroom = await Room.findOne({ _id: data.room_id });
     let receiver_id;
     if(user_id === findroom.user_a){
@@ -411,23 +520,86 @@ io.on("connection", (socket) => {
         receiver_id: receiver_id,
         content: data.content,
         type: findroom.type,
+        createdAt: data.timestamp, // Use timestamp from frontend
       });
       await message.save();
+      
+      // console.log("Saved message createdAt:", message.createdAt.toISOString());
+
+      // Get sender's name for conversation update
+      const sender = await User.findById(user_id).select("name email");
+      const senderName = sender ? sender.name : "Unknown";
+
+      // Transform message to match frontend expectations before emitting
+      const transformedMessage = {
+        _id: message._id,
+        sender_id: message.sender_id,
+        sender_name: sender ? sender.name : "Unknown", // Add sender name
+        sender_email: sender ? sender.email : "", // Add sender email
+        receiver_id: message.receiver_id,
+        content: message.content,
+        timestamp: message.createdAt, // Map createdAt to timestamp
+        room_id: message.room_id,
+        type: message.type
+      };
 
       // emit to everyone in the room
-      io.to(data.room_id).emit("receive_message", message);
+      io.to(data.room_id).emit("receive_message", transformedMessage);
+      
+      // Emit conversation update to all users in this room to update sidebar
+      io.to(data.room_id).emit("conversation_updated", {
+        roomId: data.room_id,
+        lastMessage: data.content,
+        lastMessageTime: message.createdAt,
+        lastMessageSender: senderName // Use the looked-up name
+      });
     } catch (err) {
       console.error("save msg error", err);
     }
   });
 
   // optional typing indicator
-  socket.on("typing", ({ room, sender, isTyping }) => {
-    socket.to(room).emit("typing", { sender, isTyping });
+  socket.on("typing", async ({ room, sender, isTyping }) => {
+    try {
+      // Get user information to send the name instead of just ID
+      const user = await User.findById(sender);
+      const senderName = user ? user.name : sender; // fallback to ID if user not found
+      
+      socket.to(room).emit("typing", { 
+        sender: sender,
+        senderName: senderName,
+        isTyping: isTyping,
+        room_id: room 
+      });
+    } catch (err) {
+      console.error("Error handling typing indicator:", err);
+      // Fallback to original behavior if error occurs
+      socket.to(room).emit("typing", { 
+        sender: sender, 
+        senderName: sender,
+        isTyping: isTyping,
+        room_id: room 
+      });
+    }
   });
 
   socket.on("disconnect", () => {
     console.log("Socket disconnected", socket.id);
+    
+    // Find which user went offline
+    for (const [userId, socketId] of onlineUsers.entries()) {
+      if (socketId === socket.id) {
+        onlineUsers.delete(userId);
+        console.log(`User ${userId} went offline`);
+        
+        // Broadcast to all users that this user is offline
+        socket.broadcast.emit("user_status_change", {
+          userId: userId,
+          isOnline: false
+        });
+        break;
+      }
+    }
   });
 });
 
